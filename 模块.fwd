@@ -1,6 +1,6 @@
 {
   "title": "模块",
-  "description": "作者:,",
+  "description": "作者：，",
   "icon": "https://raw.githubusercontent.com/h05n/ForwardWidgets/refs/heads/main/图标库/自用1（圆角矩形）.png",
   "widgets": [
     {
@@ -9,7 +9,7 @@
       "description": "自动获取播放链接并从服务器获取弹幕",
       "requiredVersion": "0.0.1",
       "version": "1.0.0",
-      "author": ",",
+      "author": "，",
       "url": "https://raw.githubusercontent.com/h05n/ForwardWidgets/refs/heads/main/widgets/danmu_auto.js"
     },
     {
@@ -18,7 +18,7 @@
       "description": "从指定播放链接和服务器获取弹幕",
       "requiredVersion": "0.0.1",
       "version": "1.0.0",
-      "author": ",",
+      "author": "，",
       "url": "https://raw.githubusercontent.com/h05n/ForwardWidgets/refs/heads/main/widgets/danmu_playurl.js"
     }
   ]
