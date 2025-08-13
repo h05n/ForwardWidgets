@@ -18,7 +18,7 @@ WidgetMetadata = {
   version: "1.0.0",
   requiredVersion: "0.0.1",
   description: "从指定播放链接和服务器获取弹幕",
-  author: ",",
+  author: "，",
   site: "https://github.com/h05n/ForwardWidgets",
   globalParams: [
     {
