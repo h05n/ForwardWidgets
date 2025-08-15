@@ -216,7 +216,7 @@ async function getPlayurls(title, tmdbInfo, type, season) {
         }
         let anime_title = anime.title.replace(/<\/b>·<b>/g, '');
 
-        if (anime_title.includes(queryTitle)) {
+        if (anime_title.includes(queryTitle) && anime_title.charAt(0) === queryTitle.charAt(0)) {
           // use space to split animeTitle
           let titleParts = anime_title.split("</b>");
           console.log(titleParts);
@@ -725,10 +725,17 @@ async function getPlayurlFromVod(title, tmdbInfo, type, season, episode, episode
 
   console.log("animes.length:", animes.length);
 
+  let tmdbYear;
   if (animes.length > 1) {
-    const tmdbYear = type === "tv" ? tmdbInfo.seasons[season].air_date.split("-")[0] : tmdbInfo.release_date.split("-")[0];
+      if (type === "tv") {
+          const targetSeason = tmdbInfo.seasons.find(s => s.season_number === Number(season));
+          tmdbYear = targetSeason.air_date.split("-")[0]
+      } else {
+          tmdbYear = tmdbInfo.release_date.split("-")[0]
+      }
+      console.log("tmdbYear: ", tmdbYear);
 
-    animes = animes.filter(anime => anime.vod_year == tmdbYear);
+      animes = animes.filter(anime => anime.vod_year == tmdbYear);
   }
 
   if (animes.length === 0) {
