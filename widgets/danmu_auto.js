@@ -184,6 +184,22 @@ WidgetMetadata = {
       title: "danmu_api_5 (前面匹配不到的可以试试弹幕API，比如一些韩剧/美剧)",
       type: "input",
     },
+    {
+      name: "api_priority",
+      title: "弹幕API优先 (开启后准确性可能没有通过链接匹配的高)",
+      type: "enumeration",
+      value: "false",
+      enumOptions: [
+        {
+            title: "关",
+            value: "false",
+        },
+        {
+            title: "开",
+            value: "true",
+        },
+      ],
+    },
   ],
   modules: [
     {
@@ -1587,7 +1603,7 @@ async function getDanmuFromUrl(danmu_server, playUrl, debug, danmu_server_pollin
 async function getCommentsById(params) {
   const { danmu_server, danmu_server_polling, platform, vod_site, vod_site_polling, debug, commentId, seriesName,
       episodeName, airDate, runtime, premiereDate, link, videoUrl, season, episode, tmdbId, type, title,
-    danmu_api_1, danmu_api_2, danmu_api_3, danmu_api_4, danmu_api_5 } = params;
+    danmu_api_1, danmu_api_2, danmu_api_3, danmu_api_4, danmu_api_5, api_priority } = params;
 
   // 测试参数值
   // return printParams(seriesName, episodeName, airDate, runtime, premiereDate, season, episode, tmdbId);
@@ -1602,6 +1618,14 @@ async function getCommentsById(params) {
 
   const tmdbInfo = await fetchTmdbData(tmdbId, type);
 
+  if (api_priority === "true") {
+      const result = await getDanmuFromAPI(title, tmdbInfo, type, season, episode, episodeName, airDate,
+          danmu_api_1, danmu_api_2, danmu_api_3, danmu_api_4, danmu_api_5);
+      if (result) {
+        return result;
+      }
+  }
+
   const animes = await getPlayurls(title, tmdbInfo, type, season);
   console.log("animes.length:", animes.length);
 
@@ -1610,7 +1634,7 @@ async function getCommentsById(params) {
     if (playUrl) {
         return await getDanmuFromUrl(danmu_server, playUrl, debug, danmu_server_polling);
     }
-    if (!playUrl) {
+    if (!playUrl && api_priority === "false") {
         const result = await getDanmuFromAPI(title, tmdbInfo, type, season, episode, episodeName, airDate,
             danmu_api_1, danmu_api_2, danmu_api_3, danmu_api_4, danmu_api_5);
         if (result) {
