@@ -1688,6 +1688,13 @@ async function getCommentsById(params) {
             if (playUrl) {
                 return await getDanmuFromUrl(danmu_server, playUrl, debug, danmu_server_polling);
             }
+            if (!playUrl && api_priority === "false") {
+                const result = await getDanmuFromAPI(title, tmdbInfo, type, season, episode, episodeName, airDate,
+                    danmu_api_1, danmu_api_2, danmu_api_3, danmu_api_4, danmu_api_5);
+                if (result) {
+                  return result;
+                }
+            }
             if (!playUrl) {
                 const count = debug === "true" ? 24 : 1;
                 return generateDanmaku("【自动链接弹幕】：没有找到该集弹幕", count);
@@ -1713,6 +1720,13 @@ async function getCommentsById(params) {
           playUrl = await getPlayurlFromVod(title, tmdbInfo, type, season, episode, episodeName, airDate, platform, vod_site, vod_site_polling);
           if (playUrl) {
               return await getDanmuFromUrl(danmu_server, playUrl, debug, danmu_server_polling);
+          }
+          if (!playUrl && api_priority === "false") {
+              const result = await getDanmuFromAPI(title, tmdbInfo, type, season, episode, episodeName, airDate,
+                  danmu_api_1, danmu_api_2, danmu_api_3, danmu_api_4, danmu_api_5);
+              if (result) {
+                return result;
+              }
           }
           if (!playUrl) {
               const count = debug === "true" ? 24 : 1;
@@ -1791,6 +1805,13 @@ async function getCommentsById(params) {
       playUrl = await getPlayurlFromVod(title, tmdbInfo, type, season, episode, episodeName, airDate, platform, vod_site, vod_site_polling);
       if (playUrl) {
           return await getDanmuFromUrl(danmu_server, playUrl, debug, danmu_server_polling);
+      }
+        if (!playUrl && api_priority === "false") {
+          const result = await getDanmuFromAPI(title, tmdbInfo, type, season, episode, episodeName, airDate,
+              danmu_api_1, danmu_api_2, danmu_api_3, danmu_api_4, danmu_api_5);
+          if (result) {
+            return result;
+          }
       }
       if (!playUrl) {
           const count = debug === "true" ? 24 : 1;
