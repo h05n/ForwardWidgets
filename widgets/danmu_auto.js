@@ -1296,6 +1296,7 @@ async function getPlayurls(title, tmdbInfo, type, season) {
         "Content-Type": "application/json",
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
       },
+      timeout: 15,
     }
   );
 
@@ -1596,6 +1597,7 @@ async function getDanmuFromUrl(danmu_server, playUrl, debug, danmu_server_pollin
                         "Content-Type": "application/json",
                         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
                     },
+                    timeout: 15,
                 }
             );
 
@@ -1752,6 +1754,7 @@ async function getCommentsById(params) {
                                     "Content-Type": "application/json",
                                     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
                                 },
+                                timeout: 15,
                             }
                         );
 
@@ -1867,6 +1870,7 @@ async function getPlayurlFromVod(title, tmdbInfo, type, season, episode, episode
               "Content-Type": "application/json",
               "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
             },
+            timeout: 15,
           }
         );
         // 检查 response.data.list 是否存在且长度大于 0
@@ -2105,6 +2109,7 @@ async function getDanmuFromAPI(title, tmdbInfo, type, season, episode, episodeNa
             "Content-Type": "application/json",
             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
           },
+          timeout: 15,
         }
       );
     } catch (error) {
@@ -2185,6 +2190,7 @@ async function getDanmuFromAPI(title, tmdbInfo, type, season, episode, episodeNa
           "Content-Type": "application/json",
           "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
         },
+        timeout: 15,
       }
     );
 
@@ -2224,6 +2230,7 @@ async function getDanmuFromAPI(title, tmdbInfo, type, season, episode, episodeNa
             "Content-Type": "application/json",
             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
           },
+          timeout: 15,
         }
       );
 
