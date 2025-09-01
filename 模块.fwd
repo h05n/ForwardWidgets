@@ -13,15 +13,6 @@
       "url": "https://raw.githubusercontent.com/h05n/ForwardWidgets/refs/heads/main/widgets/danmu_auto.js"
     },
     {
-      "id": "forward.playurl.danmu",
-      "title": "手动链接弹幕",
-      "description": "从指定播放链接和服务器获取弹幕。",
-      "requiredVersion": "0.0.1",
-      "version": "1.0.0",
-      "author": "，",
-      "url": "https://raw.githubusercontent.com/h05n/ForwardWidgets/refs/heads/main/widgets/danmu_playurl.js"
-    },
-    {
       "id": "bangumi_charts_tmdb_v3",
       "title": "Bangumi",
       "description": "获取Bangumi近期热门、每日放送数据，支持榜单筛选。",
