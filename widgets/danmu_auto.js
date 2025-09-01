@@ -1128,7 +1128,7 @@ async function fetchBilibili(inputUrl) {
     }
 
   } else {
-    console。error("不支持的B站视频网址，仅支持普通视频(av,bv)、剧集视频(ep)");
+    console.error("不支持的B站视频网址，仅支持普通视频(av,bv)、剧集视频(ep)");
     return null;
   }
 
