@@ -1134,16 +1134,16 @@ async function fetchBilibili(inputUrl) {
 
   const response = await Widget.http.get(danmakuUrl, {
     headers: {
-      "Content-Type": "application/xml"，
+      "Content-Type": "application/xml",
       "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-    }，
+    },
   });
 
-  return response。data;
+  return response.data;
 }
 
 async function fetchYouku(inputUrl) {
-  console。log("开始从本地请求优酷弹幕..."， inputUrl);
+  console.log("开始从本地请求优酷弹幕...", inputUrl);
 
   // 弹幕和视频信息 API 基础地址
   const api_video_info = "https://openapi.youku.com/v2/videos/show.json";
@@ -1155,7 +1155,7 @@ async function fetchYouku(inputUrl) {
 
   let path;
   if (match) {
-    path = match[2]。split('/').filter(Boolean);  // 分割路径并去掉空字符串
+    path = match[2].split('/').filter(Boolean);  // 分割路径并去掉空字符串
     path.unshift("");
     console.log(path);
   } else {
@@ -1182,7 +1182,7 @@ async function fetchYouku(inputUrl) {
     return null;
   }
 
-  const data = typeof res。data === "string" ? JSON。parse(res。data) : res.data;
+  const data = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
   const title = data.title;
   const duration = data.duration;
   console.log("标题:", title, "时长:", duration);
@@ -1348,26 +1348,26 @@ async function fetchYouku(inputUrl) {
           const result = JSON.parse(response.data.data.result);
           if (result.code === "-1") continue;
           const danmus = result.data.result;
-          for (const danmu / danmus) {
+          for (const danmu of danmus) {
             const content = {
-                timepoint: 0，	// 弹幕发送时间（秒）
+                timepoint: 0,	// 弹幕发送时间（秒）
                 ct: 1,	// 弹幕类型，1-3 为滚动弹幕、4 为底部、5 为顶端、6 为逆向、7 为精确、8 为高级
-                size: 25，	//字体大小，25 为中，18 为小
-                color: 16777215，	//弹幕颜色，RGB 颜色转为十进制后的值，16777215 为白色
-                unixtime: Math。floor(Date。now() / 1000),	//Unix 时间戳格式
+                size: 25,	//字体大小，25 为中，18 为小
+                color: 16777215,	//弹幕颜色，RGB 颜色转为十进制后的值，16777215 为白色
+                unixtime: Math.floor(Date.now() / 1000),	//Unix 时间戳格式
                 uid: 0,		//发送人的 id
                 content: "",
             };
-            content。timepoint = danmu.playat / 1000;
+            content.timepoint = danmu.playat / 1000;
             if (danmu.propertis?.color) {
               content.color = JSON.parse(danmu.propertis).color;
             }
-            content。content = danmu.content;
-            contents。push(content);
+            content.content = danmu.content;
+            contents.push(content);
           }
         }
     } catch (error) {
-        console。error("请求失败:", error.message); // 输出错误信息
+        console.error("请求失败:", error.message); // 输出错误信息
         return null;
     }
   }
@@ -1381,7 +1381,7 @@ async function fetchYouku(inputUrl) {
 // =====================
 // 人人视频 配置 & 工具
 // =====================
-const AES_KEY = Buffer。from("3b744389882a4067", "utf8");
+const AES_KEY = Buffer.from("3b744389882a4067", "utf8");
 const SIGN_SECRET = "ES513W0B1CsdUrR13Qk5EgDAKPeeKZY";
 const BASE_API = "https://api.rrmj.plus";
 
@@ -1390,7 +1390,7 @@ const ClientProfile = {
   client_version: "1.0.0",
   user_agent: "Mozilla/5.0",
   origin: "https://rrsp.com.cn",
-  referer: "https://rrsp.com.cn/"，
+  referer: "https://rrsp.com.cn/",
 };
 
 // ---------------------
@@ -1398,7 +1398,7 @@ const ClientProfile = {
 // ---------------------
 function sortedQueryString(params = {}) {
   const normalized = {};
-  for (const [k, v] / Object。entries(params)) {
+  for (const [k, v] of Object.entries(params)) {
     if (typeof v === "boolean") normalized[k] = v ? "true" : "false";
     else if (v == null) normalized[k] = "";
     else normalized[k] = String(v);
@@ -1406,24 +1406,24 @@ function sortedQueryString(params = {}) {
 
   // 获取对象的所有键并排序
   const keys = [];
-  for (const key 在 normalized) {
-    if (Object。prototype。hasOwnProperty。call(normalized, key)) {
-      keys。push(key);
+  for (const key in normalized) {
+    if (Object.prototype.hasOwnProperty.call(normalized, key)) {
+      keys.push(key);
     }
   }
   keys.sort();
 
   // 构建键值对数组
   const pairs = [];
-  for (const key / keys) {
+  for (const key of keys) {
     // 对键和值进行 URL 编码
     const encodedKey = encodeURIComponent(key);
     const encodedValue = encodeURIComponent(normalized[key]);
-    pairs。push(`${encodedKey}=${encodedValue}`);
+    pairs.push(`${encodedKey}=${encodedValue}`);
   }
 
   // 用 & 连接所有键值对
-  return pairs。join('&');
+  return pairs.join('&');
 }
 
 function updateQueryString(url, params) {
@@ -1433,29 +1433,29 @@ function updateQueryString(url, params) {
   const hashIndex = url.indexOf('#');
   let hash = '';
   if (hashIndex !== -1) {
-    baseUrl = url.substring(0， hashIndex);
+    baseUrl = url.substring(0, hashIndex);
     hash = url.substring(hashIndex);
   }
   const queryIndex = baseUrl.indexOf('?');
   if (queryIndex !== -1) {
     queryString = baseUrl.substring(queryIndex + 1);
-    baseUrl = baseUrl.substring(0， queryIndex);
+    baseUrl = baseUrl.substring(0, queryIndex);
   }
 
   // 解析现有查询字符串为对象
   const queryParams = {};
   if (queryString) {
-    const pairs = queryString。split('&');
-    for (const pair / pairs) {
+    const pairs = queryString.split('&');
+    for (const pair of pairs) {
       if (pair) {
-        const [key， value = ''] = pair.split('=')。map(decodeURIComponent);
+        const [key, value = ''] = pair.split('=').map(decodeURIComponent);
         queryParams[key] = value;
       }
     }
   }
 
   // 更新参数
-  for (const key 在 params) {
+  for (const key in params) {
     if (Object.prototype.hasOwnProperty.call(params, key)) {
       queryParams[key] = params[key];
     }
@@ -1515,9 +1515,9 @@ function buildSignedHeaders({ method, url, params = {}, deviceId, token }) {
     uet: "9",
     "x-ca-sign": xCaSign,
     Accept: "application/json",
-    "User-Agent": ClientProfile。user_agent,
+    "User-Agent": ClientProfile.user_agent,
     Origin: ClientProfile.origin,
-    Referer: ClientProfile。referer，
+    Referer: ClientProfile.referer,
   };
 }
 
@@ -1525,75 +1525,75 @@ function buildSignedHeaders({ method, url, params = {}, deviceId, token }) {
 
 // S盒
 const SBOX = [
-  0x63， 0x7c， 0x77， 0x7b， 0xf2， 0x6b， 0x6f， 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
-  0xca， 0x82， 0xc9， 0x7d， 0xfa， 0x59， 0x47, 0xf0, 0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0,
-  0xb7， 0xfd， 0x93， 0x26， 0x36， 0x3f, 0xf7, 0xcc, 0x34, 0xa5, 0xe5, 0xf1, 0x71, 0xd8, 0x31, 0x15,
-  0x04， 0xc7， 0x23， 0xc3， 0x18， 0x96， 0x05， 0x9a， 0x07， 0x12， 0x80， 0xe2， 0xeb， 0x27， 0xb2， 0x75,
-  0x09， 0x83， 0x2c， 0x1a， 0x1b， 0x6e， 0x5a， 0xa0， 0x52， 0x3b， 0xd6， 0xb3， 0x29， 0xe3， 0x2f， 0x84，
-  0x53， 0xd1， 0x00， 0xed， 0x20， 0xfc， 0xb1， 0x5b， 0x6a， 0xcb， 0xbe， 0x39， 0x4a， 0x4c， 0x58, 0xcf,
-  0xd0， 0xef， 0xaa， 0xfb， 0x43， 0x4d， 0x33， 0x85， 0x45, 0xf9, 0x02, 0x7f, 0x50, 0x3c, 0x9f, 0xa8,
-  0x51， 0xa3， 0x40， 0x8f， 0x92， 0x9d， 0x38， 0xf5， 0xbc， 0xb6， 0xda， 0x21， 0x10， 0xff， 0xf3， 0xd2，
-  0xcd， 0x0c， 0x13， 0xec， 0x5f， 0x97， 0x44， 0x17， 0xc4， 0xa7, 0x7e, 0x3d, 0x64, 0x5d, 0x19, 0x73,
-  0x60， 0x81， 0x4f， 0xdc， 0x22， 0x2a， 0x90， 0x88， 0x46， 0xee， 0xb8， 0x14， 0xde， 0x5e， 0x0b， 0xdb，
-  0xe0， 0x32， 0x3a， 0x0a， 0x49， 0x06， 0x24， 0x5c， 0xc2， 0xd3， 0xac， 0x62, 0x91, 0x95, 0xe4, 0x79,
-  0xe7， 0xc8， 0x37， 0x6d， 0x8d， 0xd5， 0x4e， 0xa9， 0x6c， 0x56， 0xf4， 0xea， 0x65， 0x7a， 0xae， 0x08，
-  0xba， 0x78， 0x25， 0x2e， 0x1c， 0xa6， 0xb4， 0xc6， 0xe8， 0xdd， 0x74， 0x1f， 0x4b， 0xbd， 0x8b， 0x8a，
-  0x70， 0x3e， 0xb5， 0x66， 0x48， 0x03， 0xf6， 0x0e， 0x61， 0x35， 0x57， 0xb9， 0x86， 0xc1， 0x1d， 0x9e，
-  0xe1， 0xf8， 0x98， 0x11， 0x69， 0xd9， 0x8e， 0x94， 0x9b， 0x1e， 0x87， 0xe9， 0xce， 0x55， 0x28， 0xdf，
-  0x8c， 0xa1， 0x89， 0x0d， 0xbf， 0xe6， 0x42， 0x68， 0x41， 0x99， 0x2d， 0x0f， 0xb0， 0x54， 0xbb， 0x16
+  0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
+  0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0, 0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0,
+  0xb7, 0xfd, 0x93, 0x26, 0x36, 0x3f, 0xf7, 0xcc, 0x34, 0xa5, 0xe5, 0xf1, 0x71, 0xd8, 0x31, 0x15,
+  0x04, 0xc7, 0x23, 0xc3, 0x18, 0x96, 0x05, 0x9a, 0x07, 0x12, 0x80, 0xe2, 0xeb, 0x27, 0xb2, 0x75,
+  0x09, 0x83, 0x2c, 0x1a, 0x1b, 0x6e, 0x5a, 0xa0, 0x52, 0x3b, 0xd6, 0xb3, 0x29, 0xe3, 0x2f, 0x84,
+  0x53, 0xd1, 0x00, 0xed, 0x20, 0xfc, 0xb1, 0x5b, 0x6a, 0xcb, 0xbe, 0x39, 0x4a, 0x4c, 0x58, 0xcf,
+  0xd0, 0xef, 0xaa, 0xfb, 0x43, 0x4d, 0x33, 0x85, 0x45, 0xf9, 0x02, 0x7f, 0x50, 0x3c, 0x9f, 0xa8,
+  0x51, 0xa3, 0x40, 0x8f, 0x92, 0x9d, 0x38, 0xf5, 0xbc, 0xb6, 0xda, 0x21, 0x10, 0xff, 0xf3, 0xd2,
+  0xcd, 0x0c, 0x13, 0xec, 0x5f, 0x97, 0x44, 0x17, 0xc4, 0xa7, 0x7e, 0x3d, 0x64, 0x5d, 0x19, 0x73,
+  0x60, 0x81, 0x4f, 0xdc, 0x22, 0x2a, 0x90, 0x88, 0x46, 0xee, 0xb8, 0x14, 0xde, 0x5e, 0x0b, 0xdb,
+  0xe0, 0x32, 0x3a, 0x0a, 0x49, 0x06, 0x24, 0x5c, 0xc2, 0xd3, 0xac, 0x62, 0x91, 0x95, 0xe4, 0x79,
+  0xe7, 0xc8, 0x37, 0x6d, 0x8d, 0xd5, 0x4e, 0xa9, 0x6c, 0x56, 0xf4, 0xea, 0x65, 0x7a, 0xae, 0x08,
+  0xba, 0x78, 0x25, 0x2e, 0x1c, 0xa6, 0xb4, 0xc6, 0xe8, 0xdd, 0x74, 0x1f, 0x4b, 0xbd, 0x8b, 0x8a,
+  0x70, 0x3e, 0xb5, 0x66, 0x48, 0x03, 0xf6, 0x0e, 0x61, 0x35, 0x57, 0xb9, 0x86, 0xc1, 0x1d, 0x9e,
+  0xe1, 0xf8, 0x98, 0x11, 0x69, 0xd9, 0x8e, 0x94, 0x9b, 0x1e, 0x87, 0xe9, 0xce, 0x55, 0x28, 0xdf,
+  0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16
 ];
 
 // 轮常量
 const RCON = [
-  0x00，0x01，0x02，0x04，0x08，0x10，0x20，0x40，0x80，0x1b，0x36
+  0x00,0x01,0x02,0x04,0x08,0x10,0x20,0x40,0x80,0x1b,0x36
 ];
 
 // 字节异或
-function xor(a，b) {
-  const out = new Uint8Array(a。length);
-  for(let i=0;i<a。length;i++) out[i]=a[i]^b[i];
+function xor(a,b) {
+  const out = new Uint8Array(a.length);
+  for(let i=0;i<a.length;i++) out[i]=a[i]^b[i];
   return out;
 }
 
 // 字循环左移
 function rotWord(word){
-  return Uint8Array。from([word[1]，word[2]，word[3]，word[0]]);
+  return Uint8Array.from([word[1],word[2],word[3],word[0]]);
 }
 
 // 字节代换
 function subWord(word){
-  return Uint8Array。from(word。map(b=>SBOX[b]));
+  return Uint8Array.from(word.map(b=>SBOX[b]));
 }
 
 // 扩展密钥 16 字节 -> 176 字节
 function keyExpansion(key) {
-  const Nk = 4， Nb=4, Nr=10;
+  const Nk = 4, Nb=4, Nr=10;
   const w = new Array(Nb*(Nr+1));
   for(let i=0;i<Nk;i++){
-    w[i] = key。slice(4*i，4*i+4);
+    w[i] = key.slice(4*i,4*i+4);
   }
   for(let i=Nk;i<Nb*(Nr+1);i++){
     let temp = w[i-1];
     if(i%Nk===0) temp = xor(subWord(rotWord(temp)), Uint8Array.from([RCON[i/Nk],0,0,0]));
-    w[i]=xor(w[i-Nk]，temp);
+    w[i]=xor(w[i-Nk],temp);
   }
   return w;
 }
 
 // AES-128 解密单块 (16 字节)
-function aesDecryptBlock(input， w) {
+function aesDecryptBlock(input, w) {
   const Nb=4, Nr=10;
   let state = new Uint8Array(input);
-  state = addRoundKey(state， w.slice(Nr*Nb,(Nr+1)*Nb));
+  state = addRoundKey(state, w.slice(Nr*Nb,(Nr+1)*Nb));
   for(let round=Nr-1;round>=1;round--){
     state = invShiftRows(state);
     state = invSubBytes(state);
-    state = addRoundKey(state， w.slice(round*Nb,(round+1)*Nb));
+    state = addRoundKey(state, w.slice(round*Nb,(round+1)*Nb));
     state = invMixColumns(state);
   }
   state = invShiftRows(state);
   state = invSubBytes(state);
-  state = addRoundKey(state， w.slice(0,Nb));
+  state = addRoundKey(state, w.slice(0,Nb));
   return state;
 }
 
@@ -3059,33 +3059,33 @@ async function getDanmuFromAPI(title, tmdbInfo, type, season, episode, episodeNa
       `${danmu_api}/api/v2/bangumi/${animeId}`,
       {
         headers: {
-          "Content-Type": "application/json"，
-          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"，
-        }，
-        timeout: 15，
+          "Content-Type": "application/json",
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+        },
+        timeout: 15,
       }
     );
 
     if (!response_detail) {
-      console。error("获取数据失败");
+      console.error("获取数据失败");
       continue;
     }
 
     let commentId;
 
-    if (输入 === "movie") {
-        commentId = response_detail。data。bangumi。episodes[0]。episodeId;
+    if (type === "movie") {
+        commentId = response_detail.data.bangumi.episodes[0].episodeId;
     } else {
-        const episodeList = response_detail。data。bangumi。episodes;
-        if (tmdbInfo。输入 !== "Reality") {
-            if (episode - 1 >= 0 && episode - 1 < episodeList。length) {
-                commentId = episodeList[episode - 1]。episodeId;
+        const episodeList = response_detail.data.bangumi.episodes;
+        if (tmdbInfo.type !== "Reality") {
+            if (episode - 1 >= 0 && episode - 1 < episodeList.length) {
+                commentId = episodeList[episode - 1].episodeId;
             }
         } else {
-            for (const episodeInfo / episodeList) {
-                console。log("episodeTitle: "， episodeInfo。episodeTitle);
-                if (episodeInfo。episodeTitle === episodeName || episodeName。includes(episodeInfo。episodeTitle)) {
-                    commentId = episodeInfo。episodeId;
+            for (const episodeInfo of episodeList) {
+                console.log("episodeTitle: ", episodeInfo.episodeTitle);
+                if (episodeInfo.episodeTitle === episodeName || episodeName.includes(episodeInfo.episodeTitle)) {
+                    commentId = episodeInfo.episodeId;
                     break;
                 }
             }
@@ -3095,22 +3095,22 @@ async function getDanmuFromAPI(title, tmdbInfo, type, season, episode, episodeNa
     // 获取弹幕
     if (commentId) {
       // 调用弹弹play弹幕API - 使用Widget.http.get
-      const response_danmu = await Widget。http。get(
-        `${danmu_api}/api/v2/comment/${commentId}?withRelated=true&chConvert=1`，
+      const response_danmu = await Widget.http.get(
+        `${danmu_api}/api/v2/comment/${commentId}?withRelated=true&chConvert=1`,
         {
           headers: {
-            "Content-Type": "application/json"，
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"，
-          }，
-          timeout: 15，
+            "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+          },
+          timeout: 15,
         }
       );
 
       if (!response_danmu) {
-        console。error("获取数据失败");
+        console.error("获取数据失败");
         continue;
       }
-      return response_danmu。data;
+      return response_danmu.data;
     }
   }
   return null;
