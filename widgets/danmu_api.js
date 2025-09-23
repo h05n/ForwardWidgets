@@ -23,7 +23,7 @@ WidgetMetadata = {
   globalParams: [
     {
       name: "server",
-      title: "自定义服务器(自部署项目地址：https://github.com/huangxd-/danmu_api.git)",
+      title: "自定义服务器",
       type: "input",
       placeholders: [
         {
