@@ -1,7 +1,7 @@
 {
   "title": "模块",
   "description": "作者：，",
-  "icon": "https://raw.githubusercontent.com/h05n/ForwardWidgets/refs/heads/main/图标库/自用1（圆角矩形）.png",
+  "icon": "https://raw.githubusercontent.com/h05n/ForwardWidgets/refs/heads/main/图标库/自用1(方形）.png",
   "widgets": [
     {
       "id": "bangumi_charts_tmdb_v3",
