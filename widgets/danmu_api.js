@@ -17,7 +17,7 @@ WidgetMetadata = {
   title: "danmu_api弹幕",
   version: "1.0.0",
   requiredVersion: "0.0.1",
-  description: "从danmu_api获取弹幕。",
+  description: "从danmu_api获取弹幕",
   author: "，",
   site: "https://github.com/h05n/ForwardWidgets",
   globalParams: [
