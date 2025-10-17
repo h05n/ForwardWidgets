@@ -4,15 +4,6 @@
   "icon": "https://raw.githubusercontent.com/h05n/ForwardWidgets/refs/heads/main/图标库/自用1(方形）.png",
   "widgets": [
     {
-      "id": "forward.auto.danmu_api",
-      "title": "danmu_api弹幕",
-      "description": "从danmu_api获取弹幕",
-      "requiredVersion": "0.0.1",
-      "version": "1.0.0",
-      "author": "，",
-      "url": "https://raw.githubusercontent.com/h05n/ForwardWidgets/refs/heads/main/widgets/danmu_api.js"
-    },
-    {
       "id": "forward.auto.danmu",
       "title": "自动链接弹幕",
       "description": "自动获取播放链接并从服务器获取弹幕",
