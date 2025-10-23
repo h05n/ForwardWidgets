@@ -3314,28 +3314,30 @@ function convertChineseNumber(chineseNumber) {
 }
 
 function matchSeason(anime, queryTitle, season) {
+  log("info", "start matchSeason: ", anime.animeTitle, queryTitle, season);
+  let res = false;
   if (anime.animeTitle.includes(queryTitle)) {
     const title = anime.animeTitle.split("(")[0].trim();
     if (title.startsWith(queryTitle)) {
       const afterTitle = title.substring(queryTitle.length).trim();
-      if (afterTitle === '' && season === 1) {
-        return true;
+      log("info", "start matchSeason afterTitle: ", afterTitle);
+      if (afterTitle === '' && season.toString() === "1") {
+        res = true;
       }
       // match number from afterTitle
       const seasonIndex = afterTitle.match(/\d+/);
-      if (seasonIndex && seasonIndex[0] === season.toString()) {
-        return true;
+      if (seasonIndex && seasonIndex[0].toString() === season.toString()) {
+        res = true;
       }
       // match chinese number
       const chineseNumber = afterTitle.match(/[一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾]+/);
-      if (chineseNumber && convertChineseNumber(chineseNumber[0]) === season) {
-        return true;
+      if (chineseNumber && convertChineseNumber(chineseNumber[0]).toString() === season.toString()) {
+        res = true;
       }
     }
-    return false;
-  } else {
-    return false;
   }
+  log("info", "start matchSeason res: ", res);
+  return res;
 }
 
 // 提取年份的辅助函数
