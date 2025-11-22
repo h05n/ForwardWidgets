@@ -11,6 +11,15 @@
       "version": "1.0.0",
       "author": "，",
       "url": "https://raw.githubusercontent.com/h05n/ForwardWidgets/refs/heads/main/widgets/danmu_auto.js"
+    },
+    {
+      "id": "forward.auto.danmu_api",
+      "title": "自定义弹幕",
+      "description": "从API获取弹幕",
+      "requiredVersion": "0.0.1",
+      "version": "1.0.0",
+      "author": "，",
+      "url": "https://raw.githubusercontent.com/h05n/ForwardWidgets/refs/heads/main/widgets/danmu_api.js"
     }
   ]
 }
