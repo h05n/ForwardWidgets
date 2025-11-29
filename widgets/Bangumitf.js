@@ -1,19 +1,20 @@
 // Bangumi 番组计划 ForwardWidget 模块
 // 作者: Claude
-// 版本: 1.0.1
+// 版本: 1.0.2
 // 网站: https://bgm.tv
 
-var WidgetMetadata = {
+WidgetMetadata = {
 id: “bangumi”,
 title: “Bangumi 番组计划”,
+version: “1.0.2”,
+requiredVersion: “0.0.1”,
 description: “浏览 Bangumi 番组计划上的动画信息”,
 author: “Claude”,
 site: “https://bgm.tv”,
-version: “1.0.1”,
-requiredVersion: “0.0.1”,
 detailCacheDuration: 300,
 modules: [
 {
+id: “calendar”,
 title: “每日放送”,
 description: “查看每日更新的动画”,
 functionName: “getCalendar”,
@@ -23,8 +24,8 @@ params: [
 name: “weekday”,
 title: “星期”,
 type: “enumeration”,
-description: “选择星期”,
 value: “0”,
+description: “选择星期”,
 enumOptions: [
 { title: “今天”, value: “0” },
 { title: “星期一”, value: “1” },
@@ -39,6 +40,7 @@ enumOptions: [
 ]
 },
 {
+id: “ranking”,
 title: “排行榜”,
 description: “浏览动画排行榜”,
 functionName: “getRanking”,
@@ -48,8 +50,8 @@ params: [
 name: “type”,
 title: “排序”,
 type: “enumeration”,
-description: “排序方式”,
 value: “rank”,
+description: “排序方式”,
 enumOptions: [
 { title: “排名”, value: “rank” },
 { title: “评分”, value: “rate” },
@@ -60,12 +62,13 @@ enumOptions: [
 name: “page”,
 title: “页码”,
 type: “page”,
-description: “页码”,
-value: 1
+value: 1,
+description: “页码”
 }
 ]
 },
 {
+id: “tagSearch”,
 title: “标签搜索”,
 description: “根据标签搜索”,
 functionName: “searchByTag”,
@@ -75,8 +78,8 @@ params: [
 name: “tag”,
 title: “标签”,
 type: “input”,
-description: “输入标签”,
-value: “”
+value: “”,
+description: “输入标签”
 },
 {
 name: “page”,
@@ -87,6 +90,7 @@ value: 1
 ]
 },
 {
+id: “onAir”,
 title: “正在放送”,
 description: “当前播出的动画”,
 functionName: “getOnAir”,
@@ -102,8 +106,8 @@ params: [
 name: “keyword”,
 title: “关键词”,
 type: “input”,
-description: “输入关键词”,
-value: “”
+value: “”,
+description: “输入关键词”
 },
 {
 name: “type”,
@@ -123,7 +127,7 @@ enumOptions: [
 };
 
 // 每日放送 - 使用 API
-async function getCalendar(params = {}) {
+async function getCalendar(params) {
 try {
 let weekday = parseInt(params.weekday) || 0;
 
@@ -182,7 +186,7 @@ throw error;
 }
 
 // 排行榜 - 使用网页爬取
-async function getRanking(params = {}) {
+async function getRanking(params) {
 try {
 const type = params.type || “rank”;
 const page = parseInt(params.page) || 1;
@@ -240,7 +244,7 @@ throw error;
 }
 
 // 标签搜索 - 使用网页爬取
-async function searchByTag(params = {}) {
+async function searchByTag(params) {
 try {
 const tag = params.tag || “”;
 const page = parseInt(params.page) || 1;
@@ -302,7 +306,7 @@ throw error;
 }
 
 // 正在放送 - 使用网页爬取
-async function getOnAir(params = {}) {
+async function getOnAir(params) {
 try {
 console.log(“获取正在放送的动画”);
 
@@ -357,7 +361,7 @@ throw error;
 }
 
 // 搜索 - 使用 API
-async function search(params = {}) {
+async function search(params) {
 try {
 const keyword = params.keyword || “”;
 const type = params.type || “2”;
