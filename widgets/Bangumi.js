@@ -1,4 +1,4 @@
-const WidgetMetadata = {
+WidgetMetadata = {
   id: "forward.bangumi",
   title: "动漫数据",
   version: "1.1.0",
