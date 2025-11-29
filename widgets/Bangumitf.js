@@ -1,18 +1,15 @@
-/**
-
-- Bangumi 番组计划 ForwardWidget 模块
-- 作者: Claude
-- 版本: 2.0.0
-- 网站: https://bgm.tv
-  */
+// Bangumi 番组计划 ForwardWidget 模块
+// 作者: Claude
+// 版本: 1.0.0
+// 网站: https://bgm.tv
 
 var WidgetMetadata = {
-id: “bangumi_enhanced”,
+id: “bangumi”,
 title: “Bangumi 番组计划”,
 description: “浏览 Bangumi 番组计划上的动画信息”,
 author: “Claude”,
 site: “https://bgm.tv”,
-version: “2.0.0”,
+version: “1.0.0”,
 requiredVersion: “0.0.1”,
 detailCacheDuration: 300,
 modules: [
