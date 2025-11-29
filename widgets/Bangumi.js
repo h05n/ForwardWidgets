@@ -4,8 +4,8 @@ WidgetMetadata = {
   version: "1.1.0",
   requiredVersion: "0.0.1",
   description: "获取时下热门动漫数据和播出日历（字段归一、ID唯一、自动排序）",
-  author: "Forward",
-  site: "https://github.com/InchStudio/ForwardWidgets",
+  author: "，",
+  site: "https://github.com/h05n/ForwardWidgets",
   modules: [
     {
       id: "dailySchedule",
