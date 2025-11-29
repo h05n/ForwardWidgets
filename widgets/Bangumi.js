@@ -19,7 +19,7 @@ var WidgetMetadata = {
       cacheDuration: 7200,
       params: [
         {
-          name: "page",
+          name: "count",
           title: "页码",
           type: "page",
           value: "1",
