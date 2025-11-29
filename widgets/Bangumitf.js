@@ -1,6 +1,6 @@
 // Bangumi 番组计划 ForwardWidget 模块
 // 作者: Claude
-// 版本: 1.0.0
+// 版本: 1.0.1
 // 网站: https://bgm.tv
 
 var WidgetMetadata = {
@@ -9,16 +9,14 @@ title: “Bangumi 番组计划”,
 description: “浏览 Bangumi 番组计划上的动画信息”,
 author: “Claude”,
 site: “https://bgm.tv”,
-version: “1.0.0”,
+version: “1.0.1”,
 requiredVersion: “0.0.1”,
 detailCacheDuration: 300,
 modules: [
 {
 title: “每日放送”,
 description: “查看每日更新的动画”,
-requiresWebView: false,
 functionName: “getCalendar”,
-sectionMode: true,
 cacheDuration: 1800,
 params: [
 {
@@ -26,9 +24,9 @@ name: “weekday”,
 title: “星期”,
 type: “enumeration”,
 description: “选择星期”,
-value: “all”,
+value: “0”,
 enumOptions: [
-{ title: “全部”, value: “all” },
+{ title: “今天”, value: “0” },
 { title: “星期一”, value: “1” },
 { title: “星期二”, value: “2” },
 { title: “星期三”, value: “3” },
@@ -43,9 +41,7 @@ enumOptions: [
 {
 title: “排行榜”,
 description: “浏览动画排行榜”,
-requiresWebView: false,
 functionName: “getRanking”,
-sectionMode: false,
 cacheDuration: 3600,
 params: [
 {
@@ -72,9 +68,7 @@ value: 1
 {
 title: “标签搜索”,
 description: “根据标签搜索”,
-requiresWebView: false,
 functionName: “searchByTag”,
-sectionMode: false,
 cacheDuration: 1800,
 params: [
 {
@@ -95,9 +89,7 @@ value: 1
 {
 title: “正在放送”,
 description: “当前播出的动画”,
-requiresWebView: false,
 functionName: “getOnAir”,
-sectionMode: false,
 cacheDuration: 3600,
 params: []
 }
@@ -114,278 +106,335 @@ description: “输入关键词”,
 value: “”
 },
 {
-name: “page”,
-title: “页码”,
-type: “page”,
-value: 1
+name: “type”,
+title: “类型”,
+type: “enumeration”,
+value: “2”,
+enumOptions: [
+{ title: “全部”, value: “” },
+{ title: “动画”, value: “2” },
+{ title: “书籍”, value: “1” },
+{ title: “音乐”, value: “3” },
+{ title: “游戏”, value: “4” }
+]
 }
 ]
 }
 };
 
-// 通用请求头
-var commonHeaders = {
-“User-Agent”: “Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36”,
-“Accept”: “text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8”,
-“Accept-Language”: “zh-CN,zh;q=0.9”
-};
-
-// 解析条目信息
-function parseItem($, element) {
+// 每日放送 - 使用 API
+async function getCalendar(params = {}) {
 try {
-var item = $(element);
+let weekday = parseInt(params.weekday) || 0;
 
 ```
-// 获取链接
-var link = item.find("a.subjectCover").attr("href") || item.find("a.l").attr("href") || "";
-var match = link.match(/\/subject\/(\d+)/);
-if (!match) {
-  return null;
-}
-var id = match[1];
-
-// 获取标题
-var title = item.find("h3 a.l").text().trim() || 
-            item.find(".info_title a").text().trim() || 
-            item.find("a.l").text().trim() || "";
-
-// 获取封面
-var cover = item.find("img.cover").attr("src") || item.find("img").attr("src") || "";
-if (cover.indexOf("//") === 0) {
-  cover = "https:" + cover;
+// 如果是今天，计算实际星期几
+if (weekday === 0) {
+  const today = new Date();
+  weekday = today.getDay() || 7;
 }
 
-// 获取评分
-var rating = item.find(".fade").text().trim() || 
-             item.find(".rating_num").text().trim() || "N/A";
+console.log("获取星期 " + weekday + " 的放送表");
 
-// 获取描述
-var desc = item.find(".info").text().trim() || 
-           item.find(".info_tip").text().trim() || "";
-
-// 获取标签
-var tags = [];
-item.find(".tag").each(function(i, tag) {
-  var t = $(tag).text().trim();
-  if (t) {
-    tags.push(t);
+// 使用 Bangumi API
+const response = await Widget.http.get("https://api.bgm.tv/calendar", {
+  headers: {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    "Accept": "application/json"
   }
 });
-var genre = tags.join(" / ");
 
-return {
-  id: "url.bgm.tv/subject/" + id,
-  type: "url",
-  title: title,
-  posterPath: cover,
-  rating: rating,
-  genreTitle: genre,
-  description: desc,
-  link: "https://bgm.tv" + link,
-  mediaType: "tv"
-};
-```
-
-} catch (e) {
-console.error(“解析失败:”, e);
-return null;
-}
+if (!response.data || !Array.isArray(response.data)) {
+  return [];
 }
 
-// 每日放送
-async function getCalendar(params) {
-try {
-var weekday = params.weekday || “all”;
-var url = “https://bgm.tv/calendar”;
-
-```
-var response = await Widget.http.get(url, {
-  headers: commonHeaders
+// 找到对应星期的数据
+const dayData = response.data.find(function(day) {
+  return day.weekday && day.weekday.id === weekday;
 });
 
-var $ = Widget.html.load(response.data);
-
-if (weekday === "all") {
-  // 返回分组数据
-  var sections = [];
-  
-  $(".calendar").each(function(i, cal) {
-    var dayTitle = $(cal).find(".headerWeek").text().trim();
-    var items = [];
-    
-    $(cal).find(".item").each(function(j, item) {
-      var parsed = parseItem($, item);
-      if (parsed) {
-        items.push(parsed);
-      }
-    });
-    
-    if (items.length > 0) {
-      sections.push({
-        title: dayTitle,
-        items: items
-      });
-    }
-  });
-  
-  return sections;
-} else {
-  // 返回单日数据
-  var index = parseInt(weekday) - 1;
-  var items = [];
-  
-  $(".calendar").eq(index).find(".item").each(function(i, item) {
-    var parsed = parseItem($, item);
-    if (parsed) {
-      items.push(parsed);
-    }
-  });
-  
-  return items;
-}
-```
-
-} catch (e) {
-console.error(“获取每日放送失败:”, e);
-throw e;
-}
+if (!dayData || !dayData.items) {
+  return [];
 }
 
-// 排行榜
-async function getRanking(params) {
-try {
-var type = params.type || “rank”;
-var page = params.page || 1;
-var url = “https://bgm.tv/anime/browser?sort=” + type + “&page=” + page;
-
-```
-var response = await Widget.http.get(url, {
-  headers: commonHeaders
+return dayData.items.map(function(item) {
+  return {
+    id: "bangumi." + item.id,
+    type: "url",
+    title: item.name_cn || item.name,
+    posterPath: (item.images && item.images.large) || (item.images && item.images.common) || "",
+    backdropPath: (item.images && item.images.large) || "",
+    rating: (item.rating && item.rating.score) ? item.rating.score.toString() : "",
+    releaseDate: item.air_date || "",
+    description: item.summary || "",
+    link: "https://bgm.tv/subject/" + item.id,
+    mediaType: "tv",
+    genreTitle: "动画",
+    episode: item.eps_count || 0
+  };
 });
+```
 
-var $ = Widget.html.load(response.data);
-var items = [];
+} catch (error) {
+console.error(“获取放送表失败:”, error);
+throw error;
+}
+}
 
-$("#browserItemList li.item").each(function(i, item) {
-  var parsed = parseItem($, item);
-  if (parsed) {
-    items.push(parsed);
+// 排行榜 - 使用网页爬取
+async function getRanking(params = {}) {
+try {
+const type = params.type || “rank”;
+const page = parseInt(params.page) || 1;
+
+```
+console.log("获取排行榜，类型: " + type + ", 页码: " + page);
+
+const url = "https://bgm.tv/anime/browser?sort=" + type + "&page=" + page;
+
+const response = await Widget.http.get(url, {
+  headers: {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    "Accept": "text/html"
   }
+});
+
+const $ = Widget.html.load(response.data);
+const items = [];
+
+$('#browserItemList li.item').each(function(i, elem) {
+  const $item = $(elem);
+  const $link = $item.find('.subjectCover');
+  const href = $link.attr('href') || '';
+  const match = href.match(/\/subject\/(\d+)/);
+  
+  if (!match) return;
+  
+  const id = match[1];
+  const title = $item.find('.l').text().trim();
+  const poster = $link.find('img').attr('src') || '';
+  const rating = $item.find('.fade').text().trim();
+  const desc = $item.find('.info').text().trim();
+
+  items.push({
+    id: "bangumi." + id,
+    type: "url",
+    title: title,
+    posterPath: poster.indexOf('//') === 0 ? "https:" + poster : poster,
+    backdropPath: poster.indexOf('//') === 0 ? "https:" + poster : poster,
+    rating: rating,
+    description: desc,
+    link: "https://bgm.tv" + href,
+    mediaType: "tv",
+    genreTitle: "动画"
+  });
 });
 
 return items;
 ```
 
-} catch (e) {
-console.error(“获取排行榜失败:”, e);
-throw e;
+} catch (error) {
+console.error(“获取排行榜失败:”, error);
+throw error;
 }
 }
 
-// 标签搜索
-async function searchByTag(params) {
+// 标签搜索 - 使用网页爬取
+async function searchByTag(params = {}) {
 try {
-var tag = params.tag || “”;
-var page = params.page || 1;
+const tag = params.tag || “”;
+const page = parseInt(params.page) || 1;
 
 ```
 if (!tag) {
   throw new Error("请输入标签");
 }
 
-var url = "https://bgm.tv/anime/tag/" + encodeURIComponent(tag) + "?page=" + page;
+console.log("标签搜索: " + tag + ", 页码: " + page);
 
-var response = await Widget.http.get(url, {
-  headers: commonHeaders
+const url = "https://bgm.tv/anime/tag/" + encodeURIComponent(tag) + "?page=" + page;
+
+const response = await Widget.http.get(url, {
+  headers: {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    "Accept": "text/html"
+  }
 });
 
-var $ = Widget.html.load(response.data);
-var items = [];
+const $ = Widget.html.load(response.data);
+const items = [];
 
-$("#browserItemList li.item").each(function(i, item) {
-  var parsed = parseItem($, item);
-  if (parsed) {
-    items.push(parsed);
-  }
+$('#browserItemList li.item').each(function(i, elem) {
+  const $item = $(elem);
+  const $link = $item.find('.subjectCover');
+  const href = $link.attr('href') || '';
+  const match = href.match(/\/subject\/(\d+)/);
+  
+  if (!match) return;
+  
+  const id = match[1];
+  const title = $item.find('.l').text().trim();
+  const poster = $link.find('img').attr('src') || '';
+  const rating = $item.find('.fade').text().trim();
+  const desc = $item.find('.info').text().trim();
+
+  items.push({
+    id: "bangumi." + id,
+    type: "url",
+    title: title,
+    posterPath: poster.indexOf('//') === 0 ? "https:" + poster : poster,
+    backdropPath: poster.indexOf('//') === 0 ? "https:" + poster : poster,
+    rating: rating,
+    description: desc,
+    link: "https://bgm.tv" + href,
+    mediaType: "tv",
+    genreTitle: "动画"
+  });
 });
 
 return items;
 ```
 
-} catch (e) {
-console.error(“标签搜索失败:”, e);
-throw e;
+} catch (error) {
+console.error(“标签搜索失败:”, error);
+throw error;
 }
 }
 
-// 正在放送
-async function getOnAir(params) {
+// 正在放送 - 使用网页爬取
+async function getOnAir(params = {}) {
 try {
-var url = “https://bgm.tv/anime/browser/airtime/0”;
+console.log(“获取正在放送的动画”);
 
 ```
-var response = await Widget.http.get(url, {
-  headers: commonHeaders
+const url = "https://bgm.tv/anime/browser/airtime/0";
+
+const response = await Widget.http.get(url, {
+  headers: {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    "Accept": "text/html"
+  }
 });
 
-var $ = Widget.html.load(response.data);
-var items = [];
+const $ = Widget.html.load(response.data);
+const items = [];
 
-$("#browserItemList li.item").each(function(i, item) {
-  var parsed = parseItem($, item);
-  if (parsed) {
-    items.push(parsed);
-  }
+$('#browserItemList li.item').each(function(i, elem) {
+  const $item = $(elem);
+  const $link = $item.find('.subjectCover');
+  const href = $link.attr('href') || '';
+  const match = href.match(/\/subject\/(\d+)/);
+  
+  if (!match) return;
+  
+  const id = match[1];
+  const title = $item.find('.l').text().trim();
+  const poster = $link.find('img').attr('src') || '';
+  const rating = $item.find('.fade').text().trim();
+  const desc = $item.find('.info').text().trim();
+
+  items.push({
+    id: "bangumi." + id,
+    type: "url",
+    title: title,
+    posterPath: poster.indexOf('//') === 0 ? "https:" + poster : poster,
+    backdropPath: poster.indexOf('//') === 0 ? "https:" + poster : poster,
+    rating: rating,
+    description: desc,
+    link: "https://bgm.tv" + href,
+    mediaType: "tv",
+    genreTitle: "动画"
+  });
 });
 
 return items;
 ```
 
-} catch (e) {
-console.error(“获取正在放送失败:”, e);
-throw e;
+} catch (error) {
+console.error(“获取正在放送失败:”, error);
+throw error;
 }
 }
 
-// 搜索
-async function search(params) {
+// 搜索 - 使用 API
+async function search(params = {}) {
 try {
-var keyword = params.keyword || “”;
-var page = params.page || 1;
+const keyword = params.keyword || “”;
+const type = params.type || “2”;
 
 ```
 if (!keyword) {
-  throw new Error("请输入关键词");
+  throw new Error("请输入搜索关键词");
 }
 
-var url = "https://bgm.tv/subject_search/" + encodeURIComponent(keyword) + "?cat=2&page=" + page;
+console.log("搜索番剧: " + keyword + ", 类型: " + type);
 
-var response = await Widget.http.get(url, {
-  headers: commonHeaders
-});
-
-var $ = Widget.html.load(response.data);
-var items = [];
-
-$("#browserItemList li.item").each(function(i, item) {
-  var parsed = parseItem($, item);
-  if (parsed) {
-    items.push(parsed);
+// 使用 Bangumi API
+const apiUrl = "https://api.bgm.tv/search/subject/" + encodeURIComponent(keyword);
+const response = await Widget.http.get(apiUrl, {
+  headers: {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    "Accept": "application/json"
+  },
+  params: {
+    type: type,
+    responseGroup: "large"
   }
 });
 
-return items;
+if (!response.data || !response.data.list) {
+  return [];
+}
+
+return response.data.list.map(function(item) {
+  return {
+    id: "bangumi." + item.id,
+    type: "url",
+    title: item.name_cn || item.name,
+    posterPath: (item.images && item.images.large) || (item.images && item.images.common) || "",
+    backdropPath: (item.images && item.images.large) || "",
+    rating: (item.rating && item.rating.score) ? item.rating.score.toString() : "",
+    releaseDate: item.air_date || "",
+    description: item.summary || "",
+    link: "https://bgm.tv/subject/" + item.id,
+    mediaType: type === "2" ? "tv" : "movie",
+    genreTitle: "动画"
+  };
+});
 ```
 
-} catch (e) {
-console.error(“搜索失败:”, e);
-throw e;
+} catch (error) {
+console.error(“搜索失败:”, error);
+throw error;
 }
 }
 
 // 加载详情
 async function loadDetail(link) {
+try {
+console.log(“加载详情: “ + link);
+
+```
+const response = await Widget.http.get(link, {
+  headers: {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+  }
+});
+
+const $ = Widget.html.load(response.data);
+
+const videoUrl = $('iframe[src*="player"]').attr('src') || "";
+
+return {
+  videoUrl: videoUrl || link,
+  description: $('.subject_summary').text().trim()
+};
+```
+
+} catch (error) {
+console.error(“加载详情失败:”, error);
 return {
 videoUrl: link
 };
+}
 }
