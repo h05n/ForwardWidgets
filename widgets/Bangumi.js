@@ -19,7 +19,7 @@ var WidgetMetadata = {
       cacheDuration: 7200,
       params: [
         {
-          name: "count",
+          name: "页码",
           title: "页码",
           type: "page",
           value: "1",
@@ -34,20 +34,20 @@ var WidgetMetadata = {
       cacheDuration: 3600,
       params: [
         {
-          name: "weekday",
+          name: "今天",
           title: "星期",
           type: "enumeration",
-          value: "0",
+          value: "今天",
           description: "选择星期几的放送表",
           enumOptions: [
-            { title: "今天", value: "0" },
-            { title: "星期一", value: "1" },
-            { title: "星期二", value: "2" },
-            { title: "星期三", value: "3" },
-            { title: "星期四", value: "4" },
-            { title: "星期五", value: "5" },
-            { title: "星期六", value: "6" },
-            { title: "星期日", value: "7" }
+            { title: "今天", value: "今天" },
+            { title: "星期一", value: "星期一" },
+            { title: "星期二", value: "星期二" },
+            { title: "星期三", value: "星期三" },
+            { title: "星期四", value: "星期四" },
+            { title: "星期五", value: "星期五" },
+            { title: "星期六", value: "星期六" },
+            { title: "星期日", value: "星期日" }
           ]
         }
       ]
