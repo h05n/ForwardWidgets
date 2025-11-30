@@ -2,7 +2,7 @@
  * Bangumi 缓存模块（使用你的 GitHub 数据）
  */
 
-export var WidgetMetadata = {
+var WidgetMetadata = {
   id: "h05n.bangumi_cache",
   title: "Bangumi 番剧放送（缓存版）",
   version: "1.0.0",
@@ -44,92 +44,75 @@ export var WidgetMetadata = {
   ]
 };
 
-// 你的缓存最终文件（Forward 读取这个）
+// 你的 GitHub enriched 最终缓存
 const CACHE_URL =
   "https://raw.githubusercontent.com/h05n/forward-bangumi-cache/main/datas/enriched_final.json";
 
 /**
- * 加载缓存数据
+ * 加载缓存
  */
 async function fetchCache() {
   const res = await Widget.http.get(CACHE_URL);
 
   if (!res || !res.data) {
-    throw new Error("❌ 无法加载缓存数据 enriched_final.json");
+    console.log("❌ 无法加载 enriched_final.json");
+    return [];
   }
 
   return res.data;
 }
 
 /**
- * 根据 weekday 过滤
+ * 获取今日的 weekday
  */
 function filterByWeekday(data, day) {
-  if (!Array.isArray(data)) return [];
-
   const today = new Date();
-  const todayWeekday = today.getDay() === 0 ? 7 : today.getDay();
+  const weekday = today.getDay() === 0 ? 7 : today.getDay();
+  const target = day === "today" ? weekday : day;
 
-  const target = day === "today" ? todayWeekday : day;
-
-  return data
-    .map(d => ({
-      weekday: d.weekday,
-      items: d.items || []
-    }))
-    .filter(d => d.weekday === target)
-    .flatMap(d => d.items);
+  const match = data.find(d => d.weekday === target);
+  return match ? match.items || [] : [];
 }
 
 /**
- * 格式化为 Forward 需要的数据
+ * 转换成 Forward 格式
  */
 function format(items) {
   return items.map(item => ({
     id: item.id,
     type: "bangumi",
-
-    // 标题（你的脚本已经自动补全）
-    title: item.title || item.name_cn || item.name || "",
-
-    // 简介
+    title: item.title || item.name_cn || item.name,
     description: item.summary || "",
-
-    // 竖图
     posterPath: item.images?.poster || "",
-
-    // 横图
     backdropPath: item.images?.backdrop || "",
-
-    // 日期
     releaseDate: item.air_date || "",
-
-    // 评分（Bangumi）
     rating: item.rating_bgm || 0,
-
     mediaType: "tv",
-
-    // 官方 Bangumi 链接
     bangumiUrl: item.url || ""
   }));
 }
 
 /**
- * 模块函数：每日放送
+ * 每日放送
  */
-export async function dailySchedule(params) {
+async function dailySchedule(params) {
   const data = await fetchCache();
   const list = filterByWeekday(data, params.day);
   return format(list);
 }
 
 /**
- * 模块函数：全部番剧
+ * 全部番剧
  */
-export async function all() {
+async function all() {
   const data = await fetchCache();
-
-  // Flatten 所有 weekday
   const list = data.flatMap(d => d.items || []);
   return format(list);
 }
+
+// 必须导出
+module.exports = {
+  WidgetMetadata,
+  dailySchedule,
+  all
+};
