@@ -1,9 +1,9 @@
 WidgetMetadata = {
-  id: "forward.bangumi.custom",
-  title: "Bangumi 自定义缓存",
+  id: "forward.bangumi.enriched",
+  title: "Bangumi 增强版（含TMDB高清图）",
   version: "1.0.0",
   requiredVersion: "0.0.1",
-  description: "使用自定义 GitHub 缓存的 Bangumi 模块",
+  description: "使用自定义 enriched.json（含 TMDB）提供横图和竖图的 Bangumi 模块",
   author: "h05n",
   site: "https://github.com/h05n/forward-bangumi-cache",
   modules: [
@@ -38,31 +38,60 @@ WidgetMetadata = {
   ]
 };
 
-// 你的 GitHub 缓存地址
-const CACHE_URL = "https://raw.githubusercontent.com/h05n/forward-bangumi-cache/main/datas/trending.json";
+const ENRICHED_URL =
+  "https://raw.githubusercontent.com/h05n/forward-bangumi-cache/main/datas/enriched.json";
 
-// 从你的 GitHub 获取缓存
-async function fetchCachedData() {
+async function fetchEnriched() {
   try {
-    console.log("正在从 GitHub 加载缓存:", CACHE_URL);
+    console.log("请求 enriched.json:", ENRICHED_URL);
 
-    const response = await Widget.http.get(CACHE_URL);
-    if (!response || !response.data) {
-      console.error("GitHub 缓存无数据");
-      return null;
-    }
+    const response = await Widget.http.get(ENRICHED_URL);
+    if (response?.data) return response.data;
 
-    console.log("缓存获取成功");
-    return response.data;
-  } catch (error) {
-    console.error("缓存请求失败:", error);
-    return null;
+    throw new Error("返回数据为空");
+  } catch (e) {
+    console.error("请求 enriched.json 失败:", e);
+    return [];
   }
 }
 
-// 根据官方格式处理数据
+// 优先标题：中文 → 繁体 → 原名 → 英文
+function pickTitle(item) {
+  const t = item.tmdb;
+  return (
+    item.name_cn ||
+    t?.name_zh ||
+    t?.name_cht ||
+    t?.original_name ||
+    t?.name_en ||
+    item.name ||
+    "未知标题"
+  );
+}
+
+function getPoster(item) {
+  return item.tmdb?.poster || item.images?.poster || "";
+}
+
+function getBackdrop(item) {
+  return item.tmdb?.backdrop || "";
+}
+
+function formatList(items) {
+  return items.map(item => ({
+    id: item.id,
+    title: pickTitle(item),
+    description: item.summary || item.tmdb?.overview || "",
+    releaseDate: item.air_date || "",
+    posterPath: getPoster(item),
+    backdropPath: getBackdrop(item),
+    rating: item.tmdb?.vote || item.rating?.score || 0,
+    url: item.url
+  }));
+}
+
 function getAnimeByDay(data, day) {
-  const weekdaysMap = {
+  const map = {
     "星期一": 1,
     "星期二": 2,
     "星期三": 3,
@@ -72,52 +101,30 @@ function getAnimeByDay(data, day) {
     "星期日": 7
   };
 
-  let weekdayId = null;
+  let id = null;
 
   if (day === "today") {
-    const jsDay = new Date().getDay(); // 0-6
-    weekdayId = jsDay === 0 ? 7 : jsDay; // JS：0=星期日 → 改成 7
+    const js = new Date().getDay(); // 0-6
+    id = js === 0 ? 7 : js;
   } else {
-    weekdayId = weekdaysMap[day];
+    id = map[day];
   }
 
-  const todayBlock = data.find(b => Number(b?.weekday?.id) === weekdayId);
-
-  return todayBlock?.items || [];
-}
-
-function formatAnimeList(items) {
-  return items.map(item => ({
-    id: item.id,
-    type: "bangumi",
-    title: item.name_cn || item.name,
-    description: item.summary || "",
-    releaseDate: item.air_date || "",
-    posterPath: item.images?.large || "",
-    rating: item.rating?.score || 0,
-    bangumiUrl: item.url,
-    originalTitle: item.name,
-    popularity: item.rating?.total || 0
-  }));
+  return data.find(b => b.weekday?.id == id)?.items || [];
 }
 
 // 每日播出
 async function dailySchedule(params) {
-  const data = await fetchCachedData();
-  if (!data) return [];
-
   const day = params.day || "today";
-  const animeList = getAnimeByDay(data, day);
+  const enriched = await fetchEnriched();
+  const items = getAnimeByDay(enriched, day);
 
-  return formatAnimeList(animeList);
+  return formatList(items);
 }
 
-// 近期注目（官方是热度，这里就是所有 item 的汇总）
+// 近期注目（所有 items 汇总）
 async function trending() {
-  const data = await fetchCachedData();
-  if (!data) return [];
-
-  const all = data.flatMap(block => block.items || []);
-
-  return formatAnimeList(all);
+  const enriched = await fetchEnriched();
+  const all = enriched.flatMap(b => b.items || []);
+  return formatList(all);
 }
