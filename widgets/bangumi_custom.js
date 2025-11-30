@@ -44,75 +44,101 @@ var WidgetMetadata = {
   ]
 };
 
-// 你的 GitHub enriched 最终缓存
-const CACHE_URL =
-  "https://raw.githubusercontent.com/h05n/forward-bangumi-cache/main/datas/enriched_final.json";
+// 你的 GitHub 缓存
+var CACHE_URL = "https://raw.githubusercontent.com/h05n/forward-bangumi-cache/main/datas/enriched_final.json";
 
-/**
- * 加载缓存
- */
+function safeGet(obj, path, fallback) {
+  try {
+    var parts = path.split(".");
+    var val = obj;
+    for (var i = 0; i < parts.length; i++) {
+      val = val[parts[i]];
+      if (val === undefined || val === null) return fallback;
+    }
+    return val;
+  } catch (e) {
+    return fallback;
+  }
+}
+
+// 加载缓存
 async function fetchCache() {
-  const res = await Widget.http.get(CACHE_URL);
+  var res = await Widget.http.get(CACHE_URL);
 
   if (!res || !res.data) {
-    console.log("❌ 无法加载 enriched_final.json");
-    return [];
+    throw new Error("无法加载 enriched_final.json");
   }
 
   return res.data;
 }
 
-/**
- * 获取今日的 weekday
- */
+// weekday 过滤
 function filterByWeekday(data, day) {
-  const today = new Date();
-  const weekday = today.getDay() === 0 ? 7 : today.getDay();
-  const target = day === "today" ? weekday : day;
+  var today = new Date();
+  var weekday = today.getDay();
+  if (weekday === 0) weekday = 7;
 
-  const match = data.find(d => d.weekday === target);
-  return match ? match.items || [] : [];
+  var target = day === "today" ? weekday : day;
+
+  for (var i = 0; i < data.length; i++) {
+    if (data[i].weekday === target) {
+      return data[i].items || [];
+    }
+  }
+  return [];
 }
 
-/**
- * 转换成 Forward 格式
- */
+// 格式化
 function format(items) {
-  return items.map(item => ({
-    id: item.id,
-    type: "bangumi",
-    title: item.title || item.name_cn || item.name,
-    description: item.summary || "",
-    posterPath: item.images?.poster || "",
-    backdropPath: item.images?.backdrop || "",
-    releaseDate: item.air_date || "",
-    rating: item.rating_bgm || 0,
-    mediaType: "tv",
-    bangumiUrl: item.url || ""
-  }));
+  var list = [];
+
+  for (var i = 0; i < items.length; i++) {
+    var item = items[i];
+
+    var poster = safeGet(item, "images.poster", "");
+    var backdrop = safeGet(item, "images.backdrop", "");
+    var title = item.title || item.name_cn || item.name || "";
+
+    list.push({
+      id: item.id,
+      type: "bangumi",
+      title: title,
+      description: item.summary || "",
+      posterPath: poster,
+      backdropPath: backdrop,
+      releaseDate: item.air_date || "",
+      rating: item.rating_bgm || 0,
+      mediaType: "tv",
+      bangumiUrl: item.url || ""
+    });
+  }
+
+  return list;
 }
 
-/**
- * 每日放送
- */
+// 每日放送
 async function dailySchedule(params) {
-  const data = await fetchCache();
-  const list = filterByWeekday(data, params.day);
-  return format(list);
+  var data = await fetchCache();
+  var items = filterByWeekday(data, params.day);
+  return format(items);
 }
 
-/**
- * 全部番剧
- */
+// 全部番剧
 async function all() {
-  const data = await fetchCache();
-  const list = data.flatMap(d => d.items || []);
+  var data = await fetchCache();
+  var list = [];
+
+  for (var i = 0; i < data.length; i++) {
+    var block = data[i];
+    if (block.items && block.items.length) {
+      list = list.concat(block.items);
+    }
+  }
   return format(list);
 }
 
-// 必须导出
 module.exports = {
-  WidgetMetadata,
-  dailySchedule,
-  all
+  WidgetMetadata: WidgetMetadata,
+  dailySchedule: dailySchedule,
+  all: all
 };
