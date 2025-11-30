@@ -1,14 +1,14 @@
 /**
- * Bangumi 缓存模块（基于官方模块结构）
- * 数据来源：你的 enriched_final.json
+ * Bangumi 缓存模块（使用 GitHub 缓存 + TMDB 封面）  
+ * 完全遵照 ForwardWidgets 官方模块要求
  */
 
 var WidgetMetadata = {
   id: "h05n.bangumi_cache",
-  title: "Bangumi 番剧放送（缓存版）",
+  title: "Bangumi 放送表（缓存版）",
   version: "1.0.0",
   requiredVersion: "0.0.1",
-  description: "使用 GitHub 自动更新的 Bangumi + TMDB 缓存数据",
+  description: "使用 GitHub 缓存 (Bangumi + TMDB 封面 + 数据) 的放送表模块",
   author: "h05n",
   site: "https://github.com/h05n/forward-bangumi-cache",
   modules: [
@@ -45,119 +45,65 @@ var WidgetMetadata = {
   ]
 };
 
-// 你的 GitHub 缓存文件
 var CACHE_URL = "https://raw.githubusercontent.com/h05n/forward-bangumi-cache/main/datas/enriched_final.json";
 
-/**
- * 安全读取字段（避免 ?.）
- */
-function safeGet(obj, path, fallback) {
-  try {
-    var parts = path.split(".");
-    var val = obj;
-
-    for (var i = 0; i < parts.length; i++) {
-      if (val[parts[i]] === undefined || val[parts[i]] === null) {
-        return fallback;
-      }
-      val = val[parts[i]];
+function fetchCache() {
+  return Widget.http.get(CACHE_URL).then(res => {
+    if (!res || !res.data) {
+      throw new Error("无法加载缓存数据 enriched_final.json");
     }
-
-    return val;
-  } catch (e) {
-    return fallback;
-  }
+    return res.data;
+  });
 }
 
-/**
- * 加载缓存数据
- */
-async function fetchCache() {
-  var res = await Widget.http.get(CACHE_URL);
-  if (!res || !res.data) {
-    throw new Error("无法加载 enriched_final.json");
-  }
-  return res.data;
-}
-
-/**
- * 根据 weekday 过滤
- */
 function filterByWeekday(data, day) {
-  var now = new Date();
-  var wd = now.getDay();
-  if (wd === 0) wd = 7;
+  var today = new Date();
+  var weekday = today.getDay() === 0 ? 7 : today.getDay();
+  var target = day === "today" ? weekday : day;
 
-  var target = day === "today" ? wd : day;
-
-  for (var i = 0; i < data.length; i++) {
-    if (data[i].weekday === target) {
-      return data[i].items || [];
-    }
-  }
-
-  return [];
-}
-
-/**
- * 转换为 Forward 数据结构（完全按官方）
- */
-function format(items) {
-  var list = [];
-
-  for (var i = 0; i < items.length; i++) {
-    var item = items[i];
-
-    var poster = safeGet(item, "images.poster", "");
-    var backdrop = safeGet(item, "images.backdrop", "");
-
-    var title =
-      item.title ||
-      item.name_cn ||
-      item.name ||
-      "";
-
-    list.push({
-      id: item.id,
-      type: "bangumi",
-      title: title,
-      description: item.summary || "",
-      posterPath: poster,
-      backdropPath: backdrop,
-      releaseDate: item.air_date || "",
-      rating: item.rating_bgm || 0,
-      mediaType: "tv",
-      bangumiUrl: item.url || ""
+  var result = [];
+  if (Array.isArray(data)) {
+    data.forEach(d => {
+      if (d.weekday === target && Array.isArray(d.items)) {
+        result = result.concat(d.items);
+      }
     });
   }
-
-  return list;
+  return result;
 }
 
-/**
- * 每日放送
- */
+function format(items) {
+  return items.map(function(item) {
+    return {
+      id: item.id,
+      type: "bangumi",
+      title: item.name_cn || item.name || "",
+      description: item.summary || "",
+      posterPath: (item.images && item.images.poster) || "",
+      backdropPath: (item.images && item.images.backdrop) || "",
+      releaseDate: item.air_date || "",
+      rating: item.rating || 0
+    };
+  });
+}
+
 async function dailySchedule(params) {
   var data = await fetchCache();
-  var items = filterByWeekday(data, params.day);
-  return format(items);
+  var list = filterByWeekday(data, params.day);
+  return format(list);
 }
 
-/**
- * 全部番剧
- */
 async function all() {
   var data = await fetchCache();
-  var ret = [];
-
-  for (var i = 0; i < data.length; i++) {
-    var block = data[i];
-    if (block.items) {
-      ret = ret.concat(block.items);
-    }
+  var list = [];
+  if (Array.isArray(data)) {
+    data.forEach(function(d) {
+      if (Array.isArray(d.items)) {
+        list = list.concat(d.items);
+      }
+    });
   }
-
-  return format(ret);
+  return format(list);
 }
 
 module.exports = {
