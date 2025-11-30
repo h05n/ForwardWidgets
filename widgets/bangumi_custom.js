@@ -1,93 +1,65 @@
 /**
- * Forward Bangumi Module - 缓存版
- * 结构完全参照官方 bangumi.js
+ * Forward - Bangumi 自定义缓存版
+ * 作者：h05n（基于官方模块修改）
+ * 数据来源：你的 GitHub enriched.json
  */
 
-const TRENDING_URL =
-  "https://raw.githubusercontent.com/h05n/forward-bangumi-cache/main/datas/trending.json";
+const CACHE_URL = "https://raw.githubusercontent.com/h05n/forward-bangumi-cache/main/datas/enriched.json";
 
-const ENRICHED_URL =
-  "https://raw.githubusercontent.com/h05n/forward-bangumi-cache/main/datas/enriched.json";
-
-/** 通用 JSON 请求 */
-async function getJSON(url) {
-  try {
-    const res = await request({
-      url,
-      method: "GET",
-      allow_redirections: true
-    });
-    return JSON.parse(res.data);
-  } catch (err) {
-    console.error("数据加载失败:", err);
-    return null;
+async function fetchData() {
+  const res = await fetch(CACHE_URL, { cache: "no-cache" });
+  if (!res.ok) {
+    throw new Error("无法加载你的缓存数据");
   }
+  return await res.json();
 }
 
-module.exports = {
-  version: 1,
-  name: "Bangumi（缓存版）",
-  icon: "tv",
+function createItemView(item) {
+  // 竖图：优先 TMDB poster，没有则使用 bangumi 图片
+  const poster =
+    item.images?.poster ||
+    item.images?.large ||
+    item.images?.common ||
+    "";
 
-  async run() {
-    console.log("Bangumi 缓存版模块启动");
+  // 横图：来自 tmdb backdrop
+  const backdrop = item.images?.backdrop || "";
 
-    /** 1. 加载 trending.json */
-    const trending = await getJSON(TRENDING_URL);
+  return {
+    title: item.name_cn || item.name,
+    subtitle: `放送日期：${item.air_date || "未知"}`,
+    image: poster,
+    banner: backdrop,
+    url: item.url,
+    summary: item.summary || "",
+    rating: item.rating?.score || 0,
+  };
+}
 
-    /** 2. 加载 enriched.json */
-    const enriched = await getJSON(ENRICHED_URL);
+export default {
+  name: "Bangumi 番剧时间表（自定义缓存）",
+  version: "1.0.0",
+  author: "h05n",
 
-    if (!trending || !enriched) {
+  async onLoad() {
+    try {
+      const data = await fetchData();
+
+      // 官方模块是按 weekday 生成 section 列表
+      const sections = data.map(day => ({
+        title: day.weekday?.cn || day.weekday?.en || "",
+        items: day.items.map(createItemView)
+      }));
+
       return {
-        title: "Bangumi（缓存）",
-        content: "❌ 无法加载缓存文件"
+        type: "list",
+        sections
+      };
+    } catch (err) {
+      return {
+        type: "error",
+        message: err.message || "加载失败"
       };
     }
-
-    console.log("trending.json:", trending.length);
-    console.log("enriched.json:", enriched.length);
-
-    /** 3. 获取今天星期几（与官方一致） */
-    let weekday = new Date().getDay();
-    weekday = weekday === 0 ? 7 : weekday; // 星期天修正为 7
-
-    /** trending.json 结构：[{ weekday: { id }, items: [] }] */
-    const todayData = trending.find(
-      (d) => Number(d.weekday?.id) === weekday
-    );
-
-    if (!todayData) {
-      return {
-        title: "Bangumi（缓存）",
-        content: "📭 今天无番剧更新"
-      };
-    }
-
-    const items = todayData.items.map((item) => {
-      const extra = enriched.find((e) => e.id === item.id);
-
-      // 横图优先
-      const cover =
-        extra?.horizontal_image ||
-        item.images?.common ||
-        item.images?.large ||
-        "";
-
-      return {
-        title: item.name_cn || item.name,
-        description: item.summary || "",
-        image: cover,
-        link: item.url,
-        badge: item.rating?.score
-          ? `⭐ ${item.rating.score}`
-          : "暂无评分"
-      };
-    });
-
-    return {
-      title: `今日更新 · ${todayData.weekday.cn}`,
-      content: items
-    };
   }
 };
