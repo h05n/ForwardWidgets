@@ -23,7 +23,7 @@ WidgetMetadata = {
   globalParams: [
     {
       name: "other_server",
-      title: "兜底第三方弹幕服务器，不填默认为https://api.danmu.icu",
+      title: "兜底服务器",
       type: "input",
       placeholders: [
         {
@@ -54,7 +54,7 @@ WidgetMetadata = {
     },
     {
       name: "vod_servers",
-      title: "VOD服务器列表，支持多个服务器并发查询，格式：名称@URL,名称@URL,...",
+      title: "VOD服务器",
       type: "input",
       placeholders: [
         {
@@ -77,7 +77,7 @@ WidgetMetadata = {
     },
     {
       name: "bilibili_cookie",
-      title: "b站cookie（填入后能抓取b站完整弹幕）",
+      title: "b站cookie",
       type: "input",
       placeholders: [
         {
@@ -88,7 +88,7 @@ WidgetMetadata = {
     },
     {
       name: "source_order",
-      title: "源排序，用于按源对返回资源的排序（注意：先后顺序会影响自动匹配最终的返回）",
+      title: "源返回排序",
       type: "input",
       placeholders: [
         {
@@ -122,7 +122,7 @@ WidgetMetadata = {
     },
     {
       name: "group_minute",
-      title: "合并去重分钟数，表示按n分钟分组后对弹幕合并去重",
+      title: "合并去重分钟数",
       type: "input",
       placeholders: [
         {
