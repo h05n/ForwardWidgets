@@ -1,9 +1,10 @@
 {
   "name": "图标库",
-  "description": "作者：，",
+  "description": "作者：",
   "icons": [
     {
-      "name": "https://raw.githubusercontent.com/h05n/ForwardWidgets/refs/heads/main/伊地知虹夏1.png"
+      "name": "伊地知虹夏1",
+      "url": "https://raw.githubusercontent.com/h05n/ForwardWidgets/main/伊地知虹夏1.png"
     }
   ]
 }
