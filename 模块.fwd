@@ -2,21 +2,24 @@
   "id": "danmu_module",
   "title": "模块",
   "description": "弹幕组件模块",
-  "version": "1.0.0",
-  "requiredVersion": "0.0.1",
-  "author": "，",
   "icon": "https://github.com/h05n/ForwardWidgets/raw/main/图标库/自用1.png",
   "widgets": [
     {
       "id": "danmu_auto",
       "title": "自链接弹幕",
       "description": "从服务器获取弹幕",
+      "version": "1.0.0",
+      "requiredVersion": "0.0.1",
+      "author": "，",
       "url": "https://github.com/h05n/ForwardWidgets/raw/main/widgets/danmu_auto.js"
     },
     {
       "id": "danmu_api",
       "title": "自定义弹幕",
       "description": "从接口中获取弹幕",
+      "version": "1.0.0",
+      "requiredVersion": "0.0.1",
+      "author": "，",
       "url": "https://github.com/h05n/ForwardWidgets/raw/main/widgets/danmu_api.js"
     }
   ]
