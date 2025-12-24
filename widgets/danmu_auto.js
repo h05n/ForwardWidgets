@@ -1,3 +1,5 @@
+// 本插件从项目 https://github.com/huangxd-/danmu_api.git 一键导出，配置参数使用说明请参考该项目README
+
 class URL {
   constructor(url, base) {
     if (base) {
@@ -8636,10 +8638,10 @@ async function getSegmentComment(segment, queryFormat) {
 var wv = true ? "1.0.0" : Globals.VERSION;
 WidgetMetadata = {
   id: "forward.auto.danmu",
-  title: "自链接弹幕",
+  title: "\u81EA\u94FE\u63A5\u5F39\u5E55",
   version: wv,
   requiredVersion: "0.0.1",
-  description: "从服务器获取弹幕",
+  description: "\u4ECE\u670D\u52A1\u5668\u83B7\u53D6\u5F39\u5E55",
   author: "，",
   site: "https://github.com/h05n/ForwardWidgets",
   globalParams: [
