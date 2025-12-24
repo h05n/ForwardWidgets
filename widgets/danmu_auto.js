@@ -1,5 +1,3 @@
-// 本插件从项目 https://github.com/huangxd-/danmu_api.git 一键导出，配置参数使用说明请参考该项目README
-
 class URL {
   constructor(url, base) {
     if (base) {
