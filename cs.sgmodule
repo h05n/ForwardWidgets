@@ -1,5 +1,0 @@
-#!name=Exclude TMDB from MITM
-#!desc=让 api.themoviedb.org 不进入 MITM，从而不触发 QUIC 屏蔽
-
-[MITM]
-hostname = -api.themoviedb.org
