@@ -5,12 +5,12 @@
   "widgets": [
     {
       "id": "forward.danmu",
-      "title": "自定义弹幕",
-      "description": "从指定服务器获取弹幕",
+      "title": "通用弹幕",
+      "description": "通用弹幕",
       "requiredVersion": "0.0.1",
       "version": "1.0.0",
       "author": "，",
-      "url": "https://github.com/h05n/ForwardWidgets/raw/main/widgets/danmu.js"
+      "url": "https://github.com/h05n/ForwardWidgets/raw/main/dist/danmu.js"
     }
   ]
 }
