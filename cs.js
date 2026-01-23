@@ -1,5 +1,5 @@
 var WidgetMetadata = {
-  id: "bilibili.bangumi.gallery",
+  id: "bilibili.bangumi.v2",
   title: "B站番剧数据",
   version: "1.0.0",
   requiredVersion: "0.0.1",
@@ -38,90 +38,76 @@ var WidgetMetadata = {
   ],
 };
 
-// --- 数据获取方法 ---
-
-async function fetchBilibiliTimeline() {
-  try {
-    const url = "https://api.bilibili.com/pgc/web/timeline/v2?season_type=1";
-    const response = await Widget.http.get(url, getBiliHeaders());
-    if (response && response.data && response.data.result) {
-      return response.data.result.latest || [];
-    }
-  } catch (error) {
-    console.error("获取 B站时间表失败:", error);
-  }
-  return [];
-}
-
-async function fetchBilibiliRanking() {
-  try {
-    const url = "https://api.bilibili.com/pgc/season/rank/web/list?season_type=1&day=3";
-    const response = await Widget.http.get(url, getBiliHeaders());
-    if (response && response.data && response.data.data) {
-      return response.data.data.list || [];
-    }
-  } catch (error) {
-    console.error("获取 B站排行榜失败:", error);
-  }
-  return [];
-}
-
-// --- 格式化方法 (仿照参考代码结构) ---
-
-function formatBiliBangumi(item) {
-  return {
-    // 优先使用 season_id 作为唯一标识
-    id: item.season_id || item.ss_id || Math.random().toString(36),
-    type: "url",
-    title: item.title,
-    description: item.desc || item.evaluate || `弹幕: ${item.stat?.danmaku || "N/A"}`,
-    // 处理 B 站图片协议头
-    posterPath: item.cover ? (item.cover.startsWith('http') ? item.cover : "https:" + item.cover) : "",
-    // 展示番剧特有的评分或热度
-    rating: item.rating ? item.rating.replace("分", "") : (item.pts ? (item.pts/10000).toFixed(1) : "0"),
-    // 更新进度展示
-    durationText: item.index_show || item.new_ep?.index_show || "查看详情",
-    genreTitle: item.styles ? item.styles.join("/") : (item.badge || "番剧"),
-    releaseDate: item.pub_time || item.pub_date || "",
-    link: `https://www.bilibili.com/bangumi/play/ss${item.season_id || item.ss_id}`,
-    playerType: "app" 
-  };
+// --- 格式化函数：严格匹配你提供的模板字段 ---
+function formatBiliData(list) {
+  if (!list) return [];
+  return list.map((item) => {
+    // 处理图片前缀
+    const img = item.cover || item.pic || "";
+    const poster = img.startsWith('http') ? img : "https:" + img;
+    
+    return {
+      // 必须包含 id 和 type
+      id: item.season_id || item.ss_id || Math.random().toString(36),
+      type: "bangumi", 
+      title: item.title,
+      description: item.desc || item.evaluate || "",
+      releaseDate: item.pub_time || item.pub_date || "",
+      posterPath: poster,
+      backdropPath: poster, // 展示用，背景图也设为封面
+      rating: item.rating ? parseFloat(item.rating.replace("分", "")) : (item.pts ? (item.pts/10000).toFixed(1) : 0),
+      mediaType: "tv",
+      genreTitle: item.styles ? item.styles.join("/") : (item.badge || "番剧"),
+      // 扩展字段
+      seasonInfo: item.index_show || item.new_ep?.index_show || "",
+      bangumiUrl: `https://www.bilibili.com/bangumi/play/ss${item.season_id || item.ss_id}`,
+      popularity: item.pts || 0
+    };
+  });
 }
 
 // --- 模块主函数 ---
 
-// 每日播出
+// 1. 每日播出
 async function dailySchedule(params) {
-  const timeline = await fetchBilibiliTimeline();
-  let dayValue = params.day || "today";
-  
-  if (dayValue === "today") {
-    const now = new Date();
-    // JS getDay() 返回 0-6 (周日到周六)，B站接口映射需要处理
-    const dayMap = [7, 1, 2, 3, 4, 5, 6]; 
-    dayValue = dayMap[now.getDay()].toString();
-  }
+  try {
+    const url = "https://api.bilibili.com/pgc/web/timeline/v2?season_type=1";
+    const response = await Widget.http.get(url, {
+      headers: { "Referer": "https://www.bilibili.com/" }
+    });
+    
+    const timeline = response.data.result.latest || [];
+    let dayValue = params.day || "today";
 
-  // 筛选对应星期的番剧
-  const targetDayData = timeline.find(d => d.day_of_week.toString() === dayValue);
-  const episodes = targetDayData ? targetDayData.episodes : [];
-  
-  return episodes.map(formatBiliBangumi);
-}
-
-// 近期注目 (排行榜)
-async function trending(params) {
-  const rankingList = await fetchBilibiliRanking();
-  return rankingList.map(formatBiliBangumi);
-}
-
-// --- 辅助方法 ---
-
-function getBiliHeaders() {
-  return {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      "Referer": "https://www.bilibili.com/anime/"
+    if (dayValue === "today") {
+      const now = new Date();
+      // 映射 JS 的 0-6 到 B站的 1-7
+      const dayMap = [7, 1, 2, 3, 4, 5, 6]; 
+      dayValue = dayMap[now.getDay()].toString();
     }
-  };
+
+    const targetDayData = timeline.find(d => d.day_of_week.toString() === dayValue);
+    const episodes = targetDayData ? targetDayData.episodes : [];
+    
+    return formatBiliData(episodes);
+  } catch (error) {
+    console.log("获取时间表失败:", error);
+    return [];
+  }
+}
+
+// 2. 近期注目
+async function trending(params) {
+  try {
+    const url = "https://api.bilibili.com/pgc/season/rank/web/list?season_type=1&day=3";
+    const response = await Widget.http.get(url, {
+      headers: { "Referer": "https://www.bilibili.com/" }
+    });
+    
+    const list = response.data.data.list || [];
+    return formatBiliData(list);
+  } catch (error) {
+    console.log("获取排行榜失败:", error);
+    return [];
+  }
 }
