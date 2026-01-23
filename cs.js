@@ -1,15 +1,15 @@
 /**
- * Bilibili 适配模块 - 稳定修复版
- * 严格对齐 demo.js 规范，解决 Decoding Error
+ * Bilibili 适配模块 - V1.3.0
+ * 严格按照 demo.js 规范修复了 Decoding Error
  */
 WidgetMetadata = {
-  id: "bilibili.forward.pro.v5",
+  id: "bilibili.forward.v130",
   title: "B站热门",
   icon: "https://www.bilibili.com/favicon.ico",
-  version: "1.2.5",
+  version: "1.3.0",
   requiredVersion: "0.0.1",
   description: "修复了 type 字段缺失导致的解码错误",
-  author: "ForwardHelper",
+  author: "Gemini",
   site: "https://www.bilibili.com",
   modules: [
     {
@@ -19,7 +19,7 @@ WidgetMetadata = {
       params: [{ name: "page", title: "页码", type: "page", value: "1" }],
     },
     {
-      // ID 必须固定为 loadResource 才能被 App 正确识别为资源加载
+      // ID 必须固定为 loadResource 才能被 App 识别为流媒体加载
       id: "loadResource",
       title: "加载资源",
       functionName: "loadResource",
@@ -30,9 +30,10 @@ WidgetMetadata = {
 };
 
 /**
- * 模块：获取热门视频列表
+ * 列表获取：全站热门
  */
 async function getPopular(params) {
+  console.log("Bilibili V1.3.0: getPopular 开始运行");
   try {
     const page = params.page || 1;
     const url = `https://api.bilibili.com/x/web-interface/popular?ps=20&pn=${page}`;
@@ -44,56 +45,44 @@ async function getPopular(params) {
       }
     });
 
-    // 容错处理：确保返回的是数组
-    if (!response.data || !response.data.data || !response.data.data.list) {
-      return [];
-    }
+    const list = response.data.data.list;
 
-    const rawList = response.data.data.list;
-
-    // 严格映射：确保每个 key 都不为 undefined
-    return rawList.filter(item => item.bvid).map((item) => {
-      const videoLink = "https://www.bilibili.com/video/" + item.bvid;
+    // 严格构造模型，修复 keyNotFound("type") 报错
+    return list.map((item) => {
+      const videoUrl = "https://www.bilibili.com/video/" + item.bvid;
       return {
-        type: "url",             // [核心修复] 必须字段，否则报 keyNotFound
-        id: videoLink,           // [规范] type 为 url 时，id 应设为对应 URL
-        title: item.title || "无标题",
-        posterPath: item.pic ? (item.pic.startsWith("//") ? "https:" + item.pic : item.pic) : "",
-        link: videoLink + "?cid=" + (item.cid || ""), // 传递给 loadResource
+        id: videoUrl,
+        type: "url",           // [核心修复] 必须提供的字段
+        title: item.title,
+        posterPath: item.pic.startsWith('http') ? item.pic : 'https:' + item.pic,
+        link: videoUrl + "?cid=" + item.cid, // 传递给 loadResource 的参数
         description: item.desc || "",
-        durationText: formatSeconds(item.duration || 0),
-        mediaType: "movie"
+        mediaType: "movie",
+        durationText: formatSeconds(item.duration)
       };
     });
   } catch (error) {
-    console.error("加载列表失败:", error);
-    return []; // 发生错误时返回空数组，避免 Decoding Error
+    console.error("Bilibili 列表加载失败:", error);
+    return [];
   }
 }
 
 /**
- * 资源解析：对应 demo.js 中的 loadResource 规范
+ * 资源解析：严格对齐 demo.js 规范
  */
 async function loadResource(params) {
+  console.log("Bilibili V1.3.0: loadResource 开始解析", params.link);
   const { link } = params;
   if (!link) return [];
 
   try {
     const bvid = link.match(/video\/(BV\w+)/)[1];
-    let cidMatch = link.match(/cid=(\d+)/);
-    let cid = (cidMatch && cidMatch[1] !== "undefined") ? cidMatch[1] : null;
+    const cidMatch = link.match(/cid=(\d+)/);
+    const cid = cidMatch ? cidMatch[1] : null;
 
-    // 备选：如果 link 没带 cid，则查一次 view 接口
-    if (!cid) {
-      const viewApi = `https://api.bilibili.com/x/web-interface/view?bvid=${bvid}`;
-      const viewResp = await Widget.http.get(viewApi, {
-          headers: { "Referer": "https://www.bilibili.com" }
-      });
-      cid = viewResp.data.data.cid;
-    }
-
-    // 解析播放流 (480P MP4 兼容性最佳)
+    // 获取播放地址 (qn=32 为 480P，无需登录最稳定)
     const playApi = `https://api.bilibili.com/x/player/playurl?bvid=${bvid}&cid=${cid}&qn=32&type=mp4&platform=html5&high_quality=1`;
+    
     const playResp = await Widget.http.get(playApi, {
       headers: {
         "Referer": "https://www.bilibili.com",
@@ -102,25 +91,22 @@ async function loadResource(params) {
     });
 
     if (playResp.data && playResp.data.data && playResp.data.data.durl) {
-        // 严格遵循 demo.js 的资源返回格式
-        return [
-          {
-            name: "Bilibili 稳定线路",
-            description: "480P | 原生 MP4 直连",
-            url: playResp.data.data.durl[0].url,
-          }
-        ];
+      // 严格按照 demo.js 返回格式
+      return [
+        {
+          name: "B站直连 (480P)",
+          description: "MP4 格式 | 稳定线路",
+          url: playResp.data.data.durl[0].url,
+        }
+      ];
     }
     return [];
-  } catch (e) {
-    console.error("资源解析异常:", e);
+  } catch (error) {
+    console.error("B站资源解析失败:", error);
     return [];
   }
 }
 
-/**
- * 辅助：时间格式化
- */
 function formatSeconds(s) {
   const m = Math.floor(s / 60);
   const rs = s % 60;
