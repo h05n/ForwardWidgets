@@ -1,9 +1,9 @@
 WidgetMetadata = {
-  id: "bilibili.bangumi.official.standard.v1", // 必须使用新 ID 以避开 App 缓存
+  id: "bilibili.bangumi.only.rank", // 更改 ID 以强制刷新缓存
   title: "B站番剧排行",
   version: "1.0.0",
   requiredVersion: "0.0.1",
-  description: "完全对齐官方自动翻页逻辑，严选高清海报，无 B站原图",
+  description: "仅包含 B站 热门番剧榜，完全对齐 TMDB 高清海报",
   author: "Forward",
   site: "https://www.bilibili.com/anime/",
   modules: [
@@ -11,95 +11,109 @@ WidgetMetadata = {
       id: "popularRank",
       title: "热门番剧榜",
       functionName: "popularRank",
-      // 官方标准参数：number 类型会自动触发 App 滚动翻页逻辑
-      params: [
-        {
-          name: "page",
-          title: "起始页",
-          type: "number",
-          default: 1
-        }
-      ]
+      params: []
     }
   ]
 };
 
-// --- 全局配置：请在此填入你的 API KEY ---
-const TMDB_API_KEY = "请自行填写"; 
-
 /**
- * 官方标准清洗逻辑
+ * 标题清洗：剔除 B站 标题干扰项（如：第2季、中配、(中文)）
  */
-function clean(t) {
-  if (!t) return "";
-  return t.replace(/\s*第[一二三四五六七八九十\d]+[季期]/g, "").replace(/[\(（].*?[\)）]/g, "").trim();
+function cleanTitle(title) {
+  if (!title) return "";
+  return title
+    .replace(/\s*第[一二三四五六七八九十\d]+季/g, "")
+    .replace(/\s*第[一二三四五六七八九十\d]+期/g, "")
+    .replace(/[\(（].*?[\)）]/g, "")
+    .replace(/！/g, "!")
+    .trim();
 }
 
 /**
- * 官方标准匹配封装：严格对齐字段与类型
+ * TMDB 搜索核心：请仅在下方 apiKey 处填写一次
  */
-async function fetchItem(item) {
-  if (!TMDB_API_KEY || TMDB_API_KEY === "请自行填写") return null;
+async function getTmdbStandard(originalTitle) {
   try {
-    const q = clean(item.title);
-    const url = "https://api.themoviedb.org/3/search/tv?api_key=" + TMDB_API_KEY + "&query=" + encodeURIComponent(q) + "&language=zh-CN";
-    const res = await Widget.http.get(url);
-    const m = res.data?.results?.[0];
+    const query = cleanTitle(originalTitle);
+    
+    // ↓ 请在此处填写你的真实 API Key
+    const apiKey = "cf2190683e55fad0f978c719d0bc1c68"; 
+    
+    if (apiKey === "请自行填写") {
+      console.log("提示：请先在脚本中填写 TMDB API Key");
+      return null;
+    }
 
-    // 严选逻辑：无高清海报项直接舍弃
-    if (m && m.poster_path) {
+    const searchUrl = `https://api.themoviedb.org/3/search/multi?api_key=${apiKey}&query=${encodeURIComponent(query)}&language=zh-CN`;
+    const res = await Widget.http.get(searchUrl);
+    
+    if (res.data && res.data.results && res.data.results.length > 0) {
+      // 优先匹配类型为 tv (动漫剧集) 的结果
+      const match = res.data.results.find(i => i.media_type === "tv") || res.data.results[0];
+      
       return {
-        id: m.id.toString(), // 必须为字符串类型
-        type: "bangumi",     // 必须为 bangumi 类型
-        title: item.title,
-        description: m.overview || "",
-        posterPath: "https://image.tmdb.org/t/p/w500" + m.poster_path,
-        backdropPath: m.backdrop_path ? "https://image.tmdb.org/t/p/original" + m.backdrop_path : "",
-        // 关键字段：必须包含完整 tmdbInfo 且 mediaType 为 tv
-        tmdbInfo: { 
-          id: m.id.toString(), 
-          mediaType: "tv" 
-        },
-        hasTmdb: true,
-        seasonInfo: "⭐" + (item.rating || "N/A") + " | " + (item.index_show || ""),
-        link: "https://www.bilibili.com/bangumi/play/ss" + (item.season_id || item.ss_id)
+        id: match.id.toString(),
+        description: match.overview || "",
+        posterPath: match.poster_path ? `https://image.tmdb.org/t/p/w500${match.poster_path}` : "",
+        backdropPath: match.backdrop_path ? `https://image.tmdb.org/t/p/original${match.backdrop_path}` : "",
+        rating: match.vote_average || 0,
+        releaseDate: match.first_air_date || match.release_date || "",
+        mediaType: "tv"
       };
     }
-  } catch (e) { return null; }
+  } catch (e) {
+    console.log(`TMDB 匹配异常 (${originalTitle}): ${e.message}`);
+  }
   return null;
 }
 
 /**
- * 模块入口：对齐官方翻页与解析逻辑
+ * 格式化：绝对弃用 B站封面，仅保留匹配成功的项
  */
-async function popularRank(params) {
-  try {
-    // 自动分页解析
-    const page = (params && params.page) ? parseInt(params.page) : 1;
-    const start = (page - 1) * 20;
-
-    // B 站排行榜总计 100 条
-    if (start >= 100) return [];
-
-    const res = await Widget.http.get("https://api.bilibili.com/pgc/season/rank/web/list?season_type=1&day=3", {
-      headers: { "Referer": "https://www.bilibili.com/" }
-    });
-
-    // 官方级多重路径解析
-    let rawList = [];
-    if (res.data) {
-      rawList = res.data.result?.list || res.data.data?.list || res.data.list || [];
-    }
-
-    if (rawList.length === 0) return [];
-
-    const pageItems = rawList.slice(start, start + 20);
-    const results = await Promise.all(pageItems.map(item => fetchItem(item)));
+async function formatWithTmdb(biliList) {
+  const results = [];
+  for (const item of biliList) {
+    const tmdb = await getTmdbStandard(item.title);
     
-    // 仅返回匹配成功项
-    return results.filter(i => i !== null);
+    if (tmdb && tmdb.posterPath) {
+      const sid = (item.season_id || item.ss_id || "").toString();
+      
+      const info = {
+        ...tmdb,
+        genreTitle: item.styles ? item.styles.join("/") : "番剧",
+        seasonInfo: item.index_show || item.new_ep?.index_show || ""
+      };
 
+      results.push({
+        id: info.id,
+        type: "bangumi",
+        title: item.title,
+        description: info.description,
+        posterPath: info.posterPath,
+        backdropPath: info.backdropPath,
+        tmdbInfo: info,
+        hasTmdb: true,
+        seasonInfo: info.seasonInfo,
+        link: `https://www.bilibili.com/bangumi/play/ss${sid}`
+      });
+    }
+  }
+  return results;
+}
+
+/**
+ * 模块入口：仅保留热门番剧榜
+ */
+async function popularRank() {
+  try {
+    const url = "https://api.bilibili.com/pgc/season/rank/web/list?season_type=1&day=3";
+    const res = await Widget.http.get(url, { headers: { "Referer": "https://www.bilibili.com/" } });
+    
+    const list = res.data.result?.list || res.data.data?.list || [];
+    // 每次刷新匹配前 15 条，确保显示质量
+    return await formatWithTmdb(list.slice(0, 15));
   } catch (e) {
+    console.log("获取 B站排行失败: " + e.message);
     return [];
   }
 }
