@@ -1,14 +1,14 @@
 /**
- * Bilibili 适配模块 - V1.3.0
- * 严格按照 demo.js 规范修复了 Decoding Error
+ * Bilibili 适配模块 - V1.3.5
+ * 严格按照 demo.js 规范修复了播放数据获取问题
  */
 WidgetMetadata = {
-  id: "bilibili.forward.v130",
+  id: "bilibili.forward.v135",
   title: "B站热门",
   icon: "https://www.bilibili.com/favicon.ico",
-  version: "1.3.0",
+  version: "1.3.5",
   requiredVersion: "0.0.1",
-  description: "修复了 type 字段缺失导致的解码错误",
+  description: "对齐 Demo 规范，修复资源加载逻辑",
   author: "Gemini",
   site: "https://www.bilibili.com",
   modules: [
@@ -19,7 +19,7 @@ WidgetMetadata = {
       params: [{ name: "page", title: "页码", type: "page", value: "1" }],
     },
     {
-      // ID 必须固定为 loadResource 才能被 App 识别为流媒体加载
+      // id 必须固定为 loadResource
       id: "loadResource",
       title: "加载资源",
       functionName: "loadResource",
@@ -30,10 +30,9 @@ WidgetMetadata = {
 };
 
 /**
- * 列表获取：全站热门
+ * 列表获取
  */
 async function getPopular(params) {
-  console.log("Bilibili V1.3.0: getPopular 开始运行");
   try {
     const page = params.page || 1;
     const url = `https://api.bilibili.com/x/web-interface/popular?ps=20&pn=${page}`;
@@ -47,32 +46,26 @@ async function getPopular(params) {
 
     const list = response.data.data.list;
 
-    // 严格构造模型，修复 keyNotFound("type") 报错
-    return list.map((item) => {
-      const videoUrl = "https://www.bilibili.com/video/" + item.bvid;
-      return {
-        id: videoUrl,
-        type: "url",           // [核心修复] 必须提供的字段
-        title: item.title,
-        posterPath: item.pic.startsWith('http') ? item.pic : 'https:' + item.pic,
-        link: videoUrl + "?cid=" + item.cid, // 传递给 loadResource 的参数
-        description: item.desc || "",
-        mediaType: "movie",
-        durationText: formatSeconds(item.duration)
-      };
-    });
+    // 返回项必须包含 type 字段
+    return list.map((item) => ({
+      id: "https://www.bilibili.com/video/" + item.bvid,
+      type: "url", // 必须字段
+      title: item.title,
+      posterPath: item.pic.startsWith('http') ? item.pic : 'https:' + item.pic,
+      link: "https://www.bilibili.com/video/" + item.bvid + "?cid=" + item.cid,
+      description: item.desc || "",
+      durationText: formatSeconds(item.duration)
+    }));
   } catch (error) {
-    console.error("Bilibili 列表加载失败:", error);
     return [];
   }
 }
 
 /**
- * 资源解析：严格对齐 demo.js 规范
+ * 资源解析：严格对齐 demo.js 格式
  */
 async function loadResource(params) {
-  console.log("Bilibili V1.3.0: loadResource 开始解析", params.link);
-  const { link } = params;
+  const { link } = params; // 解构 link 参数
   if (!link) return [];
 
   try {
@@ -80,8 +73,8 @@ async function loadResource(params) {
     const cidMatch = link.match(/cid=(\d+)/);
     const cid = cidMatch ? cidMatch[1] : null;
 
-    // 获取播放地址 (qn=32 为 480P，无需登录最稳定)
-    const playApi = `https://api.bilibili.com/x/player/playurl?bvid=${bvid}&cid=${cid}&qn=32&type=mp4&platform=html5&high_quality=1`;
+    // 获取播放地址 (使用最稳的移动端接口)
+    const playApi = `https://api.bilibili.com/x/player/playurl?bvid=${bvid}&cid=${cid}&qn=32&type=mp4&platform=html5`;
     
     const playResp = await Widget.http.get(playApi, {
       headers: {
@@ -91,19 +84,21 @@ async function loadResource(params) {
     });
 
     if (playResp.data && playResp.data.data && playResp.data.data.durl) {
-      // 严格按照 demo.js 返回格式
+      const videoUrl = playResp.data.data.durl[0].url;
+      
+      // 严格按照 demo.js 的返回格式：[{ name, description, url }]
       return [
         {
-          name: "B站直连 (480P)",
-          description: "MP4 格式 | 稳定线路",
-          url: playResp.data.data.durl[0].url,
+          name: "B站原画 (直连)",
+          description: "480P MP4 格式\n支持系统播放器",
+          url: videoUrl,
         }
       ];
     }
-    return [];
+    
+    return [{ name: "解析失败", description: "B站未返回有效流地址", url: "" }];
   } catch (error) {
-    console.error("B站资源解析失败:", error);
-    return [];
+    return [{ name: "解析错误", description: error.message, url: "" }];
   }
 }
 
