@@ -1,14 +1,14 @@
 /**
- * Bilibili 适配模块 (基于官方 Demo 规范)
- * 修复了资源加载逻辑
+ * Bilibili 适配模块 - 最终修复版
+ * 修复了 type 字段缺失导致的 Decoding Error
  */
 WidgetMetadata = {
-  id: "bilibili.forward.v3",
+  id: "bilibili.forward.final",
   title: "B站热门",
   icon: "https://www.bilibili.com/favicon.ico",
-  version: "1.1.0",
+  version: "1.1.2",
   requiredVersion: "0.0.1",
-  description: "符合最新 stream 规范的 B站热门视频模块",
+  description: "已修复数据结构缺失问题",
   author: "Gemini",
   site: "https://www.bilibili.com",
   modules: [
@@ -19,7 +19,7 @@ WidgetMetadata = {
       params: [{ name: "page", title: "页码", type: "page", value: "1" }],
     },
     {
-      // id 必须固定为 loadResource
+      // id 必须固定为 loadResource 用于解析播放地址
       id: "loadResource",
       title: "加载资源",
       functionName: "loadResource",
@@ -30,7 +30,7 @@ WidgetMetadata = {
 };
 
 /**
- * 浏览模块：获取热门视频列表
+ * 修复后的列表获取函数
  */
 async function getPopular(params = {}) {
   try {
@@ -48,11 +48,14 @@ async function getPopular(params = {}) {
 
     return list.map((item) => ({
       id: item.bvid,
+      // 关键修复：添加 type 字段，否则应用会报 Decoding Error
+      type: "url", 
       title: item.title,
       posterPath: item.pic.replace("http://", "https://"),
-      // 这里的 link 会在点击时传递给 loadResource 函数
+      // 这个 link 会作为参数传递给 loadResource
       link: `https://www.bilibili.com/video/${item.bvid}?cid=${item.cid}`,
       description: item.desc,
+      durationText: formatSeconds(item.duration)
     }));
   } catch (error) {
     console.error("列表加载失败", error);
@@ -61,27 +64,18 @@ async function getPopular(params = {}) {
 }
 
 /**
- * 资源加载模块：解析真实的播放地址
- * 严格匹配 demo.js 的返回格式
+ * 资源解析函数
  */
 async function loadResource(params) {
   const { link } = params;
   if (!link) return [];
 
   try {
-    // 1. 提取参数
     const bvid = link.match(/video\/(BV\w+)/)[1];
-    let cidMatch = link.match(/cid=(\d+)/);
-    let cid = cidMatch ? cidMatch[1] : null;
+    const cidMatch = link.match(/cid=(\d+)/);
+    const cid = cidMatch ? cidMatch[1] : null;
 
-    // 如果没有 cid 则查询一次
-    if (!cid) {
-      const viewResp = await Widget.http.get(`https://api.bilibili.com/x/web-interface/view?bvid=${bvid}`);
-      cid = viewResp.data.data.cid;
-    }
-
-    // 2. 获取播放地址 (使用 HTML5 接口以获得兼容性最好的 MP4 格式)
-    // qn=64 为 720P, qn=32 为 480P。建议先用 32 测试稳定性
+    // 获取 480P MP4 视频流（qn=32 兼容性最强）
     const playUrlApi = `https://api.bilibili.com/x/player/playurl?bvid=${bvid}&cid=${cid}&qn=32&type=mp4&platform=html5&high_quality=1`;
     
     const playResp = await Widget.http.get(playUrlApi, {
@@ -91,28 +85,20 @@ async function loadResource(params) {
       }
     });
 
-    if (playResp.data.code !== 0 || !playResp.data.data.durl) {
-        throw new Error("接口未返回有效地址");
-    }
-
     const videoUrl = playResp.data.data.durl[0].url;
 
-    // 3. 按照 Demo 要求的格式返回数组
     return [
       {
-        name: "Bilibili 直连 (480P)",
-        description: "由 B站 HTML5 接口提供解析\nMP4 格式",
+        name: "Bilibili 高清直连",
+        description: "MP4 格式 | 480P",
         url: videoUrl,
       }
     ];
   } catch (error) {
-    console.error("资源解析失败", error);
-    return [
-      {
-        name: "解析失败",
-        description: error.message,
-        url: "",
-      }
-    ];
+    return [{ name: "解析失败", description: error.message, url: "" }];
   }
+}
+
+function formatSeconds(s) {
+  return [Math.floor(s / 60), s % 60].map(v => v < 10 ? "0" + v : v).join(":");
 }
