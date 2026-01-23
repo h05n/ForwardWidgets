@@ -1,16 +1,16 @@
 var WidgetMetadata = {
-  id: "forward.bilibili.bangumi",
-  title: "哔哩哔哩番剧",
-  version: "1.0.4",
+  id: "forward.bilibili.tmdb",
+  title: "哔哩哔哩榜单",
+  version: "1.0.8",
   requiredVersion: "0.0.1",
-  description: "获取 Bilibili 的番剧与国创榜单，支持分类筛选并过滤真人内容",
+  description: "基于 B 站榜单索引，关联 TMDB 高清数据模型",
   author: "Forward",
   site: "https://github.com/InchStudio/ForwardWidgets",
   modules: [
     {
-      id: "animeRank",
-      title: "番剧排行",
-      functionName: "getAnimeRank",
+      id: "popular",
+      title: "热门动漫",
+      functionName: "getPopular",
       params: [
         {
           name: "season_type",
@@ -21,7 +21,14 @@ var WidgetMetadata = {
             { title: "国创(国产)", value: "4" }
           ],
           value: "1"
-        },
+        }
+      ]
+    },
+    {
+      id: "rank",
+      title: "番剧排行",
+      functionName: "getRank",
+      params: [
         {
           name: "day",
           title: "周期",
@@ -32,135 +39,77 @@ var WidgetMetadata = {
           ],
           value: "3"
         }
-      ],
-    },
-    {
-      id: "animeIndex",
-      title: "番剧索引",
-      functionName: "getAnimeIndex",
-      params: [
-        {
-          name: "season_type",
-          title: "大类",
-          type: "enumeration",
-          enumOptions: [
-            { title: "番剧", value: "1" },
-            { title: "国创", value: "4" }
-          ],
-          value: "1"
-        },
-        {
-          name: "area",
-          title: "地区",
-          type: "enumeration",
-          enumOptions: [
-            { title: "全部", value: "-1" },
-            { title: "日本", value: "2" },
-            { title: "国产", value: "1" },
-            { title: "美国", value: "3" },
-            { title: "其他", value: "5" }
-          ],
-          value: "-1"
-        },
-        {
-          name: "style_id",
-          title: "风格",
-          type: "enumeration",
-          enumOptions: [
-            { title: "全部", value: "-1" },
-            { title: "热血", value: "999" },
-            { title: "奇幻", value: "1002" },
-            { title: "搞笑", value: "1010" },
-            { title: "日常", value: "1009" },
-            { title: "科幻", value: "1004" },
-            { title: "治愈", value: "1023" },
-            { title: "校园", value: "1003" }
-          ],
-          value: "-1"
-        },
-        {
-          name: "page",
-          title: "页码",
-          type: "page",
-          value: "1"
-        }
-      ],
+      ]
     }
   ]
 };
 
 /**
- * 核心请求与过滤转换方法
+ * 辅助函数：通过标题搜索 TMDB 的 ID
+ * 这样可以确保首页组件能获取到真正的视频元数据
  */
-async function fetchBangumiData(url, params = {}) {
+async function mapToTMDB(title) {
   try {
-    const response = await Widget.http.get(url, {
-      params: params,
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Referer": "https://www.bilibili.com/anime/"
-      }
+    // 调用内置 TMDB 搜索接口，锁定搜索 TV 剧集
+    const searchRes = await Widget.tmdb.get("search/tv", {
+      params: { query: title, language: "zh-CN" }
     });
-
-    if (!response || response.data.code !== 0) {
-      throw new Error(response?.data?.message || "获取数据失败");
-    }
-
-    // 兼容排行和索引接口的数据位置
-    let list = response.data.data.list || response.data.result || [];
-
-    // --- 关键修改：真人内容过滤逻辑 ---
-    // 过滤掉标题或描述中包含“真人”、“特摄”、“剧场版”等可能涉及真人的词汇
-    // 同时过滤掉 B 站某些电影/电视剧分类误入的内容
-    const filteredList = list.filter(item => {
-      const title = (item.title || "").toLowerCase();
-      const desc = (item.index_show || item.desc || "").toLowerCase();
-      const styles = (item.styles || "").toLowerCase();
-      
-      const liveActionKeywords = ["真人", "特摄", "奥特曼", "假面骑士", "电视剧", "真人版"];
-      return !liveActionKeywords.some(key => title.includes(key) || desc.includes(key) || styles.includes(key));
-    });
-
-    return filteredList.map((item) => {
+    
+    if (searchRes && searchRes.results && searchRes.results.length > 0) {
+      const item = searchRes.results[0]; // 取最匹配的一个
       return {
-        id: item.season_id || item.ss_id,
-        type: "url", 
-        title: item.title || "未知标题",
-        description: item.index_show || item.new_ep?.index_show || item.styles || "",
-        posterPath: item.cover,
-        rating: item.rating || item.score || "",
-        mediaType: "tv",
-        link: `https://www.bilibili.com/bangumi/play/ss${item.season_id || item.ss_id}`,
+        id: item.id,
+        type: "tmdb",
+        title: item.name || title,
+        description: item.overview,
+        posterPath: item.poster_path,
+        backdropPath: item.backdrop_path,
+        rating: item.vote_average,
+        releaseDate: item.first_air_date,
+        mediaType: "tv"
       };
-    });
-  } catch (error) {
-    console.error("Bilibili 模块执行失败:", error);
-    throw error;
+    }
+  } catch (e) {
+    console.error(`TMDB 匹配失败: ${title}`, e);
   }
+  return null;
 }
 
-// 1. 获取排行 (支持番剧/国创切换)
-async function getAnimeRank(params) {
-  const url = "https://api.bilibili.com/pgc/web/rank/list";
-  return await fetchBangumiData(url, { 
-    day: params.day, 
-    season_type: params.season_type 
+/**
+ * 核心逻辑：从 B 站取榜单名，转为 TMDB 对象
+ */
+async function fetchAndConvert(url, params) {
+  const response = await Widget.http.get(url, {
+    params: params,
+    headers: { "Referer": "https://www.bilibili.com/" }
   });
+
+  if (!response || response.data.code !== 0) throw new Error("B 站源获取失败");
+
+  const list = response.data.result?.list || response.data.data?.list || [];
+  
+  // 过滤掉特摄等真人内容
+  const blackList = ["真人", "特摄", "奥特曼", "假面骑士", "电视剧"];
+  const titles = list
+    .filter(item => !blackList.some(k => (item.title || "").includes(k)))
+    .slice(0, 15) // 限制条数以保证搜索效率
+    .map(item => item.title);
+
+  // 并发搜索 TMDB 匹配信息
+  const results = await Promise.all(titles.map(title => mapToTMDB(title)));
+  
+  // 过滤掉没匹配上的，返回标准模型
+  return results.filter(item => item !== null);
 }
 
-// 2. 获取索引筛选
-async function getAnimeIndex(params) {
-  const url = "https://api.bilibili.com/pgc/season/index/result";
-  const query = {
-    season_type: params.season_type,
-    area: params.area,
-    style_id: params.style_id,
-    page: params.page,
-    pagesize: 20,
-    type: 1,
-    order: 3, 
-    st: 1,
-    sort: 0
-  };
-  return await fetchBangumiData(url, query);
+// 热门
+async function getPopular(params) {
+  const url = "https://api.bilibili.com/pgc/web/rank/list";
+  return await fetchAndConvert(url, { season_type: params.season_type, day: 3 });
+}
+
+// 排行
+async function getRank(params) {
+  const url = "https://api.bilibili.com/pgc/web/rank/list";
+  return await fetchAndConvert(url, { day: params.day, season_type: 1 });
 }
