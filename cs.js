@@ -1,33 +1,34 @@
 // ===========================================
-// Forward Widget: 日漫榜单 (Simple & Clean)
-// Version: 3.2.0
+// Forward Widget: 全球日漫榜 (Stable & Clean)
+// Version: 1.0.0
 // ===========================================
 
 const CONFIG = {
-    ALL_NETWORKS: "1605|2007|1330|1419|1631",
+    // 聚合：国内五大平台 + 国际主流 (Netflix, Disney+, Crunchyroll)
+    ALL_NETWORKS: "1605|2007|1330|1419|1631|213|2739|1112",
     BASE_GENRE: "16", 
     BLOCK_GENRE: "10762" 
 };
 
 WidgetMetadata = {
-  id: "bangdan_japan_simple", // 改ID刷新配置
+  id: "bangdan_global_v4", 
   title: "日漫榜单",
-  description: "聚合全网平台的日本动画榜单",
-  author: "ForwardUser",
+  description: "聚合全球平台的纯净日漫榜单",
+  author: "，",
   site: "https://github.com/h05n/ForwardWidgets",
-  version: "3.2.0",
+  version: "1.0.0", 
   requiredVersion: "0.0.1",
   detailCacheDuration: 60, 
   modules: [
     {
       title: "日漫榜单",
-      description: "浏览国内引进的日本动画",
+      description: "浏览正版引进的日本番剧",
       requiresWebView: false,
       functionName: "moduleDiscover",
       cacheDuration: 3600, 
       params: [
         {
-          name: "platform", title: "播出平台", type: "enumeration", value: "",
+          name: "platform", title: "播出平台", type: "enumeration", value: "", 
           enumOptions: [
             { title: "全部平台", value: "" }, 
             { title: "哔哩哔哩", value: "1605" },
@@ -37,19 +38,15 @@ WidgetMetadata = {
             { title: "芒果TV", value: "1631" }
           ]
         },
-        // 优化：四大核心分类，去重去冗余
+        // 极致去重分类：按照观看需求划分，避免内容交叉
         {
           name: "genre", title: "动画题材", type: "enumeration", value: "",
           enumOptions: [
             { title: "全部题材", value: "" },
-            // 1. 动作冒险 (Action & Adventure) - 涵盖战斗/战争/机战
-            { title: "热血 / 冒险", value: "10759" },
-            // 2. 科幻奇幻 (Sci-Fi & Fantasy) - 涵盖异世界/魔法/超能力
-            { title: "奇幻 / 异界", value: "10765" },
-            // 3. 喜剧 (Comedy) - 涵盖恋爱/搞笑/日常/治愈 (大部分日常番都有喜剧标签)
-            { title: "恋爱 / 日常", value: "35" },
-            // 4. 剧情 (Drama) - 涵盖悬疑/推理/深度/致郁
-            { title: "烧脑 / 剧情", value: "18" }
+            { title: "动作热血 (战斗/冒险)", value: "10759" },
+            { title: "轻松治愈 (搞笑/恋爱)", value: "35" },
+            { title: "奇幻冒险 (异界/科幻)", value: "10765" },
+            { title: "深度剧情 (悬疑/推理)", value: "18" }
           ]
         },
         { 
@@ -57,9 +54,7 @@ WidgetMetadata = {
           enumOptions: [
             {title: "第一页", value: "1"}, {title: "第二页", value: "2"},
             {title: "第三页", value: "3"}, {title: "第四页", value: "4"},
-            {title: "第五页", value: "5"}, {title: "第六页", value: "6"},
-            {title: "第七页", value: "7"}, {title: "第八页", value: "8"},
-            {title: "第九页", value: "9"}, {title: "第十页", value: "10"}
+            {title: "第五页", value: "5"}
           ]
         }
       ]
@@ -104,6 +99,7 @@ async function moduleDiscover(args) {
     const targetPlatform = platform || CONFIG.ALL_NETWORKS;
 
     try {
+        // 使用最稳定的 Widget.tmdb 通道，彻底规避 B 站 403 报错
         const res = await Widget.tmdb.get('/discover/tv', { 
             params: {
                 language: 'zh-CN', 
@@ -111,7 +107,8 @@ async function moduleDiscover(args) {
                 sort_by: 'first_air_date.desc',
                 with_networks: targetPlatform,
                 with_genres: genre ? `${CONFIG.BASE_GENRE},${genre}` : CONFIG.BASE_GENRE,
-                with_original_language: 'ja', // 保持日漫锁
+                // 核心过滤逻辑：锁死日语，屏蔽国产3D
+                with_original_language: 'ja', 
                 without_genres: CONFIG.BLOCK_GENRE, 
                 'first_air_date.lte': getBeijingToday()
             }
@@ -124,6 +121,6 @@ async function moduleDiscover(args) {
             .map(item => Render.card(item));
 
     } catch (e) {
-        return [Render.info("加载失败", "网络请求错误")];
+        return [Render.info("加载失败", "数据通道异常，请检查网络")];
     }
 }
