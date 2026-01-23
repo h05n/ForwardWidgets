@@ -1,12 +1,12 @@
 /**
- * Bilibili 适配模块 - V1.3.5
- * 严格按照 demo.js 规范修复了播放数据获取问题
+ * Bilibili 适配模块 - V1.4.0
+ * 严格按照 demo.js 提供的 stream 规范编写
  */
 WidgetMetadata = {
-  id: "bilibili.forward.v135",
+  id: "bilibili.forward.v140",
   title: "B站热门",
   icon: "https://www.bilibili.com/favicon.ico",
-  version: "1.3.5",
+  version: "1.4.0",
   requiredVersion: "0.0.1",
   description: "对齐 Demo 规范，修复资源加载逻辑",
   author: "Gemini",
@@ -30,7 +30,7 @@ WidgetMetadata = {
 };
 
 /**
- * 列表获取
+ * 列表获取函数
  */
 async function getPopular(params) {
   try {
@@ -46,26 +46,27 @@ async function getPopular(params) {
 
     const list = response.data.data.list;
 
-    // 返回项必须包含 type 字段
+    // 必须包含 type 字段以防止解码错误
     return list.map((item) => ({
       id: "https://www.bilibili.com/video/" + item.bvid,
-      type: "url", // 必须字段
+      type: "url", 
       title: item.title,
       posterPath: item.pic.startsWith('http') ? item.pic : 'https:' + item.pic,
+      // 这里的 link 会作为参数传递给 loadResource
       link: "https://www.bilibili.com/video/" + item.bvid + "?cid=" + item.cid,
       description: item.desc || "",
-      durationText: formatSeconds(item.duration)
     }));
   } catch (error) {
+    console.error("列表加载失败", error);
     return [];
   }
 }
 
 /**
- * 资源解析：严格对齐 demo.js 格式
+ * 资源解析函数：严格对齐 demo.js 格式
  */
 async function loadResource(params) {
-  const { link } = params; // 解构 link 参数
+  const { link } = params; 
   if (!link) return [];
 
   try {
@@ -73,7 +74,7 @@ async function loadResource(params) {
     const cidMatch = link.match(/cid=(\d+)/);
     const cid = cidMatch ? cidMatch[1] : null;
 
-    // 获取播放地址 (使用最稳的移动端接口)
+    // 获取播放地址，qn=16 (360P) 或 qn=32 (480P) 在无 Cookie 时最稳定
     const playApi = `https://api.bilibili.com/x/player/playurl?bvid=${bvid}&cid=${cid}&qn=32&type=mp4&platform=html5`;
     
     const playResp = await Widget.http.get(playApi, {
@@ -86,11 +87,11 @@ async function loadResource(params) {
     if (playResp.data && playResp.data.data && playResp.data.data.durl) {
       const videoUrl = playResp.data.data.durl[0].url;
       
-      // 严格按照 demo.js 的返回格式：[{ name, description, url }]
+      // 必须返回数组，对象包含 name, description, url
       return [
         {
-          name: "B站原画 (直连)",
-          description: "480P MP4 格式\n支持系统播放器",
+          name: "B站稳定线路 (MP4)",
+          description: "480P 兼容格式",
           url: videoUrl,
         }
       ];
@@ -98,12 +99,7 @@ async function loadResource(params) {
     
     return [{ name: "解析失败", description: "B站未返回有效流地址", url: "" }];
   } catch (error) {
+    console.error("资源解析错误", error);
     return [{ name: "解析错误", description: error.message, url: "" }];
   }
-}
-
-function formatSeconds(s) {
-  const m = Math.floor(s / 60);
-  const rs = s % 60;
-  return (m < 10 ? "0" + m : m) + ":" + (rs < 10 ? "0" + rs : rs);
 }
