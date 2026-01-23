@@ -1,6 +1,6 @@
 // ===========================================
-// Forward Widget: 动画榜单 (Domestic Anime v2.0)
-// Version: 2.0.0 (Industrial Refactor)
+// Forward Widget: 动画榜单 (Domestic Anime v3.0)
+// Version: 3.0.0 (Ultimate Refactor)
 // Author: Optimized by Gemini
 // ===========================================
 
@@ -15,27 +15,27 @@ const CONFIG = {
     KEY_BLOCK_GENRES: "fw_anime_block_genres",
     // 二次元题材映射 (Human Readable Mapping)
     GENRE_MAP: {
-        "10759": "热血 / 战斗",    // Action & Adventure
-        "10765": "奇幻 / 异世界",  // Sci-Fi & Fantasy
-        "35":    "搞笑 / 恋爱",    // Comedy (往往涵盖恋爱喜剧)
-        "9648":  "悬疑 / 智斗",    // Mystery
-        "18":    "剧情 / 催泪",    // Drama
-        "10751": "日常 / 治愈",    // Family
-        "10768": "战争 / 机战",    // War & Politics
-        "10762": "儿童 / 幼教"     // Kids
+        "10759": "热血 / 战斗",    
+        "10765": "奇幻 / 异世界",  
+        "35":    "搞笑 / 恋爱",    
+        "9648":  "悬疑 / 智斗",    
+        "18":    "剧情 / 催泪",    
+        "10751": "日常 / 治愈",    
+        "10768": "战争 / 机战",    
+        "10762": "儿童 / 幼教"     
     }
 };
 
 // ================= 元数据定义 =================
 WidgetMetadata = {
-  id: "anime_rank_v2",
+  id: "anime_rank_v3",
   title: "动画榜单",
-  description: "国内平台动画专用榜单 (v2.0)",
+  description: "国内平台动画专用榜单 (v3.0)",
   author: "ForwardUser",
   site: "https://github.com/h05n/ForwardWidgets",
-  version: "2.0.0",
+  version: "3.0.0",
   requiredVersion: "0.0.1",
-  detailCacheDuration: 0, // 设为0以保证屏蔽操作立即生效
+  detailCacheDuration: 0, 
   modules: [
     // ------------------------------------------------
     // 模块 1: 动画发现 (Discover)
@@ -74,19 +74,20 @@ WidgetMetadata = {
         {
           name: "status", title: "连载状态", type: "enumeration", value: "released",
           enumOptions: [
-            { title: "已开播", value: "released" },
-            { title: "未开播", value: "upcoming" },
+            { title: "已开播 (看最新)", value: "released" },
+            { title: "未开播 (看预告)", value: "upcoming" },
             { title: "全部", value: "" }
           ]
         },
+        // 这里的排序值只是默认值，代码中会根据 status 智能调整
         {
-          name: "sort", title: "排序方式", type: "enumeration", value: "first_air_date.desc",
+          name: "sort", title: "排序方式", type: "enumeration", value: "smart",
           enumOptions: [
-            { title: "首播时间↓", value: "first_air_date.desc" },
-            { title: "首播时间↑", value: "first_air_date.asc" },
+            { title: "智能排序 (推荐)", value: "smart" },
+            { title: "时间倒序 (新→旧)", value: "first_air_date.desc" },
+            { title: "时间正序 (旧→新)", value: "first_air_date.asc" },
             { title: "人气最高", value: "popularity.desc" },
-            { title: "评分最高", value: "vote_average.desc" },
-            { title: "最多投票", value: "vote_count.desc" }
+            { title: "评分最高", value: "vote_average.desc" }
           ]
         },
         { name: "page", title: "页码", type: "page" }
@@ -109,7 +110,6 @@ WidgetMetadata = {
             { title: "按题材屏蔽", value: "genre" }
           ]
         },
-        // 优化：默认显示输入框，无belongTo延迟
         { 
             name: "query", title: "动画名称", type: "input", value: "", placeholder: "输入名称，自动屏蔽第1个结果" 
         },
@@ -169,25 +169,22 @@ WidgetMetadata = {
 
 // ================= 核心架构 (Core) =================
 
-// 1. 渲染卫士 (Render Guard)
-// 负责生成绝对安全的 Forward 数据对象，防止崩溃
+// 1. 渲染卫士 (Render Guard) - 防止白屏
 const Render = {
-    // 渲染普通动画卡片 (可点击)
     card: (item) => ({
         id: String(item.id),
-        type: "tmdb", // 允许点击进入详情
+        type: "tmdb", 
         title: item.name || item.title,
         overview: item.overview || "暂无简介",
         posterPath: item.poster_path,
         rating: item.vote_average,
         releaseDate: item.first_air_date || item.release_date,
-        mediaType: "tv" // 动画主要是 TV
+        mediaType: "tv"
     }),
     
-    // 渲染信息条目 (不可点击或纯展示)
     info: (title, desc, poster = "") => ({
         id: "msg_" + Math.random().toString(36).substr(2, 9),
-        type: "info", // 纯信息模式
+        type: "info", 
         title: title,
         description: desc,
         posterPath: poster,
@@ -206,14 +203,12 @@ const DB = {
     set: (key, val) => {
         Widget.storage.set(key, JSON.stringify(val));
     },
-    // 获取黑名单 Set (O(1) 复杂度)
     getBlockSet: () => {
         const list = DB.get(CONFIG.KEY_BLOCK_ITEMS);
         const set = new Set();
         list.forEach(i => set.add(String(i.id)));
         return set;
     },
-    // 获取被屏蔽的题材ID数组
     getBlockGenres: () => {
         return DB.get(CONFIG.KEY_BLOCK_GENRES).map(g => String(g.id));
     }
@@ -221,59 +216,70 @@ const DB = {
 
 // 3. 业务逻辑层 (Service Layer)
 const Service = {
-    // 检查是否被屏蔽
     isBlocked: (item, blockSet, blockGenres) => {
         if (!item || !item.id) return true;
-        
-        // 1. ID 匹配
         if (blockSet.has(String(item.id))) return true;
-
-        // 2. 题材匹配 (注意：所有项目都有 16，所以要看 16 之外的)
         if (item.genre_ids && item.genre_ids.length > 0 && blockGenres.length > 0) {
-            // 如果该动画的任意一个题材在黑名单中，则屏蔽
             const hasBlockedGenre = item.genre_ids.some(gid => blockGenres.includes(String(gid)));
             if (hasBlockedGenre) return true;
         }
         return false;
+    },
+    
+    // 关键修复：获取北京时间 (UTC+8) 的日期字符串 YYYY-MM-DD
+    getBeijingDateStr: (offsetDays = 0) => {
+        const d = new Date();
+        const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
+        const bjTime = new Date(utc + (3600000 * 8)); // 北京时间
+        bjTime.setDate(bjTime.getDate() + offsetDays);
+        return bjTime.toISOString().split('T')[0];
     }
 };
 
 // ================= 模块实现 =================
 
 /**
- * 模块 1: 发现动画
- * 逻辑：强制锁定 Animation + 强制锁定国内平台 + 可选题材
+ * 模块 1: 动画发现
  */
 async function moduleDiscover(args) {
     const { platform, genre, status, sort, page } = args;
 
-    // 构建 TMDB 参数
+    // 1. 智能计算日期界限 (北京时间)
+    const todayStr = Service.getBeijingDateStr(0);      // 今天
+    const tomorrowStr = Service.getBeijingDateStr(1);   // 明天
+
+    // 2. 智能排序逻辑
+    let finalSort = sort;
+    if (sort === 'smart') {
+        if (status === 'upcoming') finalSort = 'first_air_date.asc'; // 未开播：按时间正序 (先看明天要播的)
+        else finalSort = 'first_air_date.desc'; // 其他：按时间倒序 (先看最新的)
+    }
+
+    // 3. 构建 TMDB 参数
     const apiParams = {
         language: 'zh-CN',
         page: page || 1,
-        sort_by: sort || 'first_air_date.desc',
+        sort_by: finalSort,
         with_networks: platform || CONFIG.CN_NETWORKS,
-        // 关键逻辑：题材 = 基础动画ID(16) + 用户选的题材
         with_genres: genre ? `${CONFIG.BASE_GENRE},${genre}` : CONFIG.BASE_GENRE,
-        'first_air_date.lte': status === 'released' ? getDateStr() : undefined,
-        'first_air_date.gte': status === 'upcoming' ? getDateStr() : undefined
+        // 关键逻辑：严格的日期界限
+        'first_air_date.lte': status === 'released' ? todayStr : undefined,    // <= 今天
+        'first_air_date.gte': status === 'upcoming' ? tomorrowStr : undefined  // >= 明天
     };
 
-    // 评分排序优化：过滤掉只有1-2人评分的高分冷门作
-    if (sort === 'vote_average.desc') apiParams['vote_count.gte'] = 10;
+    if (finalSort === 'vote_average.desc') apiParams['vote_count.gte'] = 10;
 
     try {
         const res = await Widget.tmdb.get('/discover/tv', { params: apiParams });
         const results = res.results || [];
         
-        // 准备黑名单数据
         const bSet = DB.getBlockSet();
         const bGenres = DB.getBlockGenres();
 
         return results
-            .filter(item => !Service.isBlocked(item, bSet, bGenres)) // 过滤
-            .filter(item => item.name && item.poster_path) // 清洗脏数据
-            .map(item => Render.card(item)); // 渲染
+            .filter(item => !Service.isBlocked(item, bSet, bGenres))
+            .filter(item => item.name && item.poster_path)
+            .map(item => Render.card(item));
 
     } catch (e) {
         return [Render.info("加载失败", "网络请求错误，请稍后重试")];
@@ -282,62 +288,44 @@ async function moduleDiscover(args) {
 
 /**
  * 模块 2: 搜索与屏蔽
- * 逻辑：输入 -> 搜索 -> 取首位 -> 存入 Storage -> 返回结果
  */
 async function moduleBlocker(args) {
     const { mode, query, genre_id } = args;
 
-    // --- 分支 A: 屏蔽题材 ---
     if (mode === 'genre') {
         if (!genre_id) return [Render.info("提示", "请选择要屏蔽的题材")];
-        
         const list = DB.get(CONFIG.KEY_BLOCK_GENRES);
         if (list.some(g => String(g.id) === String(genre_id))) {
             return [Render.info("已存在", "该题材已在黑名单中")];
         }
-
         const genreName = CONFIG.GENRE_MAP[genre_id] || "未知题材";
         list.push({ id: genre_id, name: genreName, date: Date.now() });
         DB.set(CONFIG.KEY_BLOCK_GENRES, list);
-        
         return [Render.info("屏蔽成功", `已屏蔽: ${genreName}`)];
     }
 
-    // --- 分支 B: 屏蔽内容 (按名称) ---
     if (!query) return [Render.info("提示", "请输入动画名称以进行屏蔽")];
 
     try {
-        // 搜索 TV (动画通常是 TV)
         const res = await Widget.tmdb.get('/search/tv', {
             params: { query: query, language: 'zh-CN', page: 1 }
         });
         
         const validItems = (res.results || []).filter(i => i.name && i.poster_path);
         
-        if (validItems.length === 0) {
-            return [Render.info("未找到", "没有搜索到相关动画，请检查名称")];
-        }
+        if (validItems.length === 0) return [Render.info("未找到", "没有搜索到相关动画")];
 
-        // 命中第 1 个结果
         const target = validItems[0];
         const list = DB.get(CONFIG.KEY_BLOCK_ITEMS);
 
-        // 查重
         if (list.some(i => String(i.id) === String(target.id))) {
             return [Render.info("已在黑名单", target.name, target.poster_path)];
         }
 
-        // 写入
-        list.push({
-            id: String(target.id),
-            name: target.name,
-            poster: target.poster_path,
-            date: Date.now()
-        });
+        list.push({ id: String(target.id), name: target.name, poster: target.poster_path, date: Date.now() });
         DB.set(CONFIG.KEY_BLOCK_ITEMS, list);
 
         return [Render.info("已自动屏蔽", `ID: ${target.id} | ${target.name}`, target.poster_path)];
-
     } catch (e) {
         return [Render.info("错误", "搜索过程中发生网络错误")];
     }
@@ -350,47 +338,33 @@ async function moduleManager(args) {
     const { target, action, uid, import_str } = args;
     const isGenre = target === 'genres';
     const KEY = isGenre ? CONFIG.KEY_BLOCK_GENRES : CONFIG.KEY_BLOCK_ITEMS;
-    
     let list = DB.get(KEY);
 
-    // 1. 清空
     if (action === 'clear') {
         DB.set(KEY, []);
         return [Render.info("操作完成", isGenre ? "题材屏蔽已清空" : "内容屏蔽已清空")];
     }
 
-    // 2. 解除 (Unblock)
     if (action === 'unblock') {
         if (!uid) return [Render.info("提示", "请输入要解除的ID")];
-        
         const initialLen = list.length;
         list = list.filter(i => String(i.id) !== String(uid).trim());
-        
-        if (list.length === initialLen) {
-            return [Render.info("失败", "未找到该ID，请检查输入")];
-        }
-        
+        if (list.length === initialLen) return [Render.info("失败", "未找到该ID")];
         DB.set(KEY, list);
         return [Render.info("解除成功", `ID ${uid} 已恢复显示`)];
     }
 
-    // 3. 导出
     if (action === 'export') {
         const dataStr = list.map(i => i.id).join(',');
         return [Render.info("配置数据", dataStr || "列表为空")];
     }
 
-    // 4. 导入
     if (action === 'import') {
         const ids = (import_str || "").split(/[,，| ]/).filter(s => /^\d+$/.test(s.trim()));
         let added = 0;
         ids.forEach(newId => {
             if (!list.some(i => String(i.id) === newId)) {
-                list.push({ 
-                    id: newId, 
-                    name: isGenre ? (CONFIG.GENRE_MAP[newId] || "导入题材") : `导入内容(${newId})`,
-                    date: Date.now() 
-                });
+                list.push({ id: newId, name: isGenre ? (CONFIG.GENRE_MAP[newId] || "导入题材") : `导入ID(${newId})`, date: Date.now() });
                 added++;
             }
         });
@@ -398,23 +372,8 @@ async function moduleManager(args) {
         return [Render.info("导入完成", `成功导入 ${added} 条数据`)];
     }
 
-    // 5. 默认视图: 列表展示
-    if (list.length === 0) {
-        return [Render.info("列表为空", "暂无屏蔽数据")];
-    }
+    if (list.length === 0) return [Render.info("列表为空", "暂无屏蔽数据")];
 
-    // 排序：最近屏蔽的在前面
     list.sort((a, b) => (b.date || 0) - (a.date || 0));
-
-    // 渲染列表 (使用 Render.info 确保格式绝对正确)
-    return list.map(item => Render.info(
-        item.name || "未知名称",
-        `ID: ${item.id}`,
-        item.poster ? item.poster : ""
-    ));
-}
-
-// 辅助: 获取今天日期字符串 (YYYY-MM-DD)
-function getDateStr() {
-    return new Date().toISOString().split('T')[0];
+    return list.map(item => Render.info(item.name || "未知名称", `ID: ${item.id}`, item.poster ? item.poster : ""));
 }
