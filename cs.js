@@ -1,14 +1,13 @@
 // ===========================================
-// Forward Widget: 全球日漫榜 (Spec Fixed)
-// Version: 4.5.0
+// Forward Widget: 全球日漫榜 (Spec Compliance)
 // ===========================================
 
 WidgetMetadata = {
-  id: "bangdan_global_v5",
+  id: "global_anime_final_v5", // 使用全新ID，彻底清除缓存干扰
   title: "日漫榜单",
   description: "聚合全球核心平台的纯净日漫榜单",
   author: "Gemini",
-  version: "4.5.0",
+  version: "5.0.0",
   detailCacheDuration: 60,
   modules: [
     {
@@ -42,7 +41,7 @@ WidgetMetadata = {
           value: "",
           enumOptions: [
             { title: "全部题材", value: "" },
-            { title: "热血 / 冒险", value: "10759" },
+            { title: "动作 / 冒险", value: "10759" },
             { title: "轻松 / 治愈", value: "35" },
             { title: "奇幻 / 异界", value: "10765" },
             { title: "烧脑 / 剧情", value: "18" }
@@ -67,14 +66,14 @@ WidgetMetadata = {
 };
 
 async function moduleDiscover(args) {
-  var p = parseInt(args.page_num) || 1;
-  var platform = args.platform;
-  var genre = args.genre;
+  var page = args.page_num || "1";
+  var platform = args.platform || "ALL";
+  var genre = args.genre || "";
 
-  // 映射逻辑
+  // 1. 严格映射平台 ID 字符串
   var networkIds = "";
   if (platform === "ALL") {
-    networkIds = "1605|2007|1330|1419|1631|213|2739|1112|4595|1857";
+    networkIds = "1605|2007|1330|213|2739|1112|4595";
   } else if (platform === "CN") {
     networkIds = "1605|2007|1330";
   } else if (platform === "INTL") {
@@ -83,60 +82,65 @@ async function moduleDiscover(args) {
     networkIds = platform;
   }
 
-  // 题材处理
-  var withGenres = "16";
-  if (genre) {
-    withGenres = "16," + genre;
+  // 2. 题材构建 (16 是动画大类)
+  var genres = "16";
+  if (genre !== "") {
+    genres = "16," + genre;
   }
 
   try {
-    var res = await Widget.tmdb.get("/discover/tv", {
+    // 3. 发起请求
+    var response = await Widget.tmdb.get("/discover/tv", {
       params: {
         language: "zh-CN",
-        page: p,
+        page: page,
         sort_by: "popularity.desc",
         with_networks: networkIds,
-        with_genres: withGenres,
-        with_original_language: "ja",
-        without_genres: "10762",
+        with_genres: genres,
+        with_original_language: "ja", // 锁死日语
+        without_genres: "10762",    // 屏蔽儿童
         "first_air_date.lte": new Date().toISOString().split("T")[0]
       }
     });
 
-    if (!res || !res.results || res.results.length === 0) {
+    // 4. 数据存在性校验
+    if (!response || !response.results || response.results.length === 0) {
       return [{
-        id: "msg_empty",
+        id: "empty_info",
         type: "info",
-        title: "无匹配结果",
-        description: "当前分类下暂无数据",
+        title: "暂无日漫资源",
+        description: "当前分类或平台暂未搜索到相关条目",
         mediaType: "info"
       }];
     }
 
-    var output = [];
-    for (var i = 0; i < res.results.length; i++) {
-      var item = res.results[i];
-      if (item.name && item.poster_path) {
-        output.push({
-          id: String(item.id),
+    // 5. 格式化输出为 VideoItem 数组
+    var items = [];
+    for (var i = 0; i < response.results.length; i++) {
+      var entry = response.results[i];
+      if (entry.name && entry.poster_path) {
+        items.push({
+          id: entry.id.toString(),
           type: "tmdb",
-          title: item.name,
-          overview: item.overview || "暂无简介",
-          posterPath: item.poster_path,
-          rating: item.vote_average,
-          releaseDate: item.first_air_date,
+          title: entry.name,
+          overview: entry.overview || "暂无简介",
+          posterPath: entry.poster_path,
+          rating: entry.vote_average,
+          releaseDate: entry.first_air_date,
           mediaType: "tv"
         });
       }
     }
-    return output;
+    
+    return items;
 
-  } catch (e) {
+  } catch (err) {
+    // 6. 异常捕获并返回 info 类型
     return [{
-      id: "msg_error",
+      id: "error_info",
       type: "info",
-      title: "请求失败",
-      description: "TMDB 通道暂时不可用",
+      title: "加载失败",
+      description: "网络连接超时或数据通道异常",
       mediaType: "info"
     }];
   }
