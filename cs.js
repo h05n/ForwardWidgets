@@ -31,14 +31,15 @@ async function getScenarioMovies(params) {
     var tmdbKey = params.tmdbKey;
     var scenario = params.scenario;
     
+    // 如果没有填写 Key，返回空列表
     if (!tmdbKey) return [];
 
     var configMap = {
-        "🌌 漫步太空": { "genre": "878", "keyword": "space", "desc": "星辰大海，孤寂永恒" },
-        "🏝️ 荒岛余生": { "genre": "12", "keyword": "island", "desc": "生存法则，绝境求生" },
-        "🏮 赛博都市": { "genre": "80,878", "keyword": "cyberpunk", "desc": "霓虹阴影，高空低迷" },
-        "🏰 中世纪古堡": { "genre": "14,27", "keyword": "castle", "desc": "古老诅咒，阴影重重" },
-        "🕰️ 1920年代": { "genre": "18,36", "keyword": "1920s", "desc": "爵士年代，华丽落幕" }
+        "🌌 漫步太空": { "genre": "878", "keyword": "space", "desc": "星辰大海" },
+        "🏝️ 荒岛余生": { "genre": "12", "keyword": "island", "desc": "绝境求生" },
+        "🏮 赛博都市": { "genre": "80,878", "keyword": "cyberpunk", "desc": "霓虹高空" },
+        "🏰 中世纪古堡": { "genre": "14,27", "keyword": "castle", "desc": "古老阴影" },
+        "🕰️ 1920年代": { "genre": "18,36", "keyword": "1920s", "desc": "华丽落幕" }
     };
 
     var current = configMap[scenario] || configMap["🌌 漫步太空"];
