@@ -1,121 +1,58 @@
 // ================= 元数据配置 =================
-// 注意：不要加 const/let，确保它是全局变量，Forward 才能读取到
 WidgetMetadata = {
   id: "bangdan",
   title: "影视榜单",
-  description: "影视动画榜单",
+  description: "影视榜单",
   author: "，",
   site: "https://github.com/h05n/ForwardWidgets",
   version: "1.0.0",
   requiredVersion: "0.0.1",
   detailCacheDuration: 60,
   modules: [
-    // ------------- TMDB 模块 -------------
+    // ------------- 1. 播出平台模块 (精简版) -------------
     {
-      title: "TMDB 热门剧集",
-      description: "今日热门电视剧",
+      title: "TMDB 播出平台",
+      description: "按播出平台和内容类型筛选剧集内容",
       requiresWebView: false,
-      functionName: "loadTodayHotTV",
-      cacheDuration: 3600,
-      params: [
-        { name: "language", title: "语言", type: "language", value: "zh-CN" },
-        { 
-          name: "sort_by", title: "地区", type: "enumeration", value: "",
-          enumOptions: [
-            { title: "全部地区", value: "" }, { title: "中国", value: "CN" }, { title: "美国", value: "US" },
-            { title: "韩国", value: "KR" }, { title: "日本", value: "JP" }, { title: "英国", value: "GB" },
-            { title: "泰国", value: "TH" }, { title: "德国", value: "DE" }
-          ]
-        },
-        { name: "page", title: "页码", type: "page" }
-      ]
-    },
-    {
-      title: "TMDB 热门电影",
-      description: "今日热门电影",
-      requiresWebView: false,
-      functionName: "loadTodayHotMovies",
-      cacheDuration: 3600,
-      params: [
-        { name: "language", title: "语言", type: "language", value: "zh-CN" },
-        { 
-          name: "sort_by", title: "地区", type: "enumeration", value: "",
-          enumOptions: [
-            { title: "全部地区", value: "" }, { title: "中国", value: "CN" }, { title: "美国", value: "US" },
-            { title: "韩国", value: "KR" }, { title: "日本", value: "JP" }, { title: "英国", value: "GB" },
-            { title: "中国香港", value: "HK" }, { title: "中国台湾", value: "TW" }
-          ]
-        },
-        { name: "page", title: "页码", type: "page" }
-      ]
-    },
-    {
-      title: "TMDB 高分内容",
-      description: "高分电影或剧集 (按用户评分排序)",
-      requiresWebView: false,
-      functionName: "tmdbTopRated",
-      cacheDuration: 3600,
-      params: [
-        { name: "type", title: "类型", type: "enumeration", enumOptions: [{ title: "电影", value: "movie" }, { title: "剧集", value: "tv" }], value: "movie" },
-        { name: "language", title: "语言", type: "language", value: "zh-CN" },
-        { name: "page", title: "页码", type: "page" }
-      ]
-    },
-    {
-        title: "TMDB 播出平台",
-        description: "按播出平台和内容类型筛选剧集内容",
-        requiresWebView: false,
-        functionName: "tmdbDiscoverByNetwork",
-        cacheDuration: 3600,
-        params: [
-            {
-                name: "with_networks", title: "播出平台", type: "enumeration", value: "",
-                enumOptions: [
-                  { title: "全部", value: "" }, { title: "Tencent", value: "2007" }, { title: "iQiyi", value: "1330" },
-                  { title: "Youku", value: "1419" }, { title: "Bilibili", value: "1605" }, { title: "Netflix", value: "213" },
-                  { title: "Disney+", value: "2739" }, { title: "HBO", value: "49" }, { title: "Apple TV+", value: "2552" }
-                ]
-            },
-            {
-              name: "with_genres", title: "内容类型", type: "enumeration", value: "",
-              enumOptions: [
-                { title: "全部类型", value: "" }, { title: "犯罪", value: "80" }, { title: "动画", value: "16" },
-                { title: "喜剧", value: "35" }, { title: "剧情", value: "18" }, { title: "悬疑", value: "9648" }
-              ]
-            },
-            {
-              name: "air_status", title: "上映状态", type: "enumeration", value: "released",
-              enumOptions: [{ title: "已上映", value: "released" }, { title: "未上映", value: "upcoming" }, { title: "全部", value: "" }]
-            },
-            {
-              name: "sort_by", title: "排序方式", type: "enumeration", value: "first_air_date.desc",
-              enumOptions: [
-                { title: "上映时间↓", value: "first_air_date.desc" }, { title: "人气最高", value: "popularity.desc" },
-                { title: "评分最高", value: "vote_average.desc" }
-              ]
-            },
-            { name: "page", title: "页码", type: "page" },
-            { name: "language", title: "语言", type: "language", value: "zh-CN" }
-        ]
-    },
-    {
-      title: "TMDB 出品公司",
-      requiresWebView: false,
-      functionName: "tmdbCompanies",
+      functionName: "tmdbDiscoverByNetwork",
       cacheDuration: 3600,
       params: [
         {
-          name: "with_companies", title: "出品公司", type: "enumeration", value: "",
+          name: "with_networks", title: "播出平台", type: "enumeration", value: "",
           enumOptions: [
-            { title: "全部", value: "" }, { title: "Disney", value: "2" }, { title: "Warner Bros", value: "174" },
-            { title: "Netflix", value: "213" }, { title: "A24", value: "41077" }
+            { title: "全部", value: "" },
+            { title: "Tencent", value: "2007" },
+            { title: "iQiyi", value: "1330" },
+            { title: "Youku", value: "1419" },
+            { title: "Bilibili", value: "1605" },
+            { title: "MGTV", value: "1631" }
+          ]
+        },
+        {
+          name: "with_genres", title: "内容类型", type: "enumeration", value: "",
+          enumOptions: [
+            { title: "全部类型", value: "" }, { title: "犯罪", value: "80" }, { title: "动画", value: "16" },
+            { title: "喜剧", value: "35" }, { title: "剧情", value: "18" }, { title: "悬疑", value: "9648" },
+            { title: "家庭", value: "10751" }, { title: "动作冒险", value: "10759" }, { title: "科幻奇幻", value: "10765" }
+          ]
+        },
+        {
+          name: "air_status", title: "上映状态", type: "enumeration", value: "released",
+          enumOptions: [{ title: "已上映", value: "released" }, { title: "未上映", value: "upcoming" }, { title: "全部", value: "" }]
+        },
+        {
+          name: "sort_by", title: "排序方式", type: "enumeration", value: "first_air_date.desc",
+          enumOptions: [
+            { title: "上映时间↓", value: "first_air_date.desc" },
+            { title: "人气最高", value: "popularity.desc" },
+            { title: "评分最高", value: "vote_average.desc" }
           ]
         },
         { name: "page", title: "页码", type: "page" },
         { name: "language", title: "语言", type: "language", value: "zh-CN" }
       ]
     },
-    // ------------- 屏蔽管理模块 -------------
+    // ------------- 2. 搜索屏蔽模块 -------------
     {
       title: "TMDB 搜索屏蔽",
       description: "按影片名称或内容类型进行屏蔽",
@@ -137,6 +74,7 @@ WidgetMetadata = {
         { name: "media_type", title: "媒体类型", type: "enumeration", value: "tv", enumOptions: [{ title: "剧集", value: "tv" }, { title: "电影", value: "movie" }] }
       ]
     },
+    // ------------- 3. 屏蔽管理模块 -------------
     {
       title: "TMDB 屏蔽管理",
       description: "查看和管理已屏蔽的内容",
@@ -155,24 +93,6 @@ WidgetMetadata = {
         { name: "unblock_id", title: "解除ID", type: "input", value: "", belongTo: { paramName: "action", value: ["unblock"] } },
         { name: "import_data", title: "导入数据", type: "input", value: "", belongTo: { paramName: "action", value: ["import"] } }
       ]
-    },
-    // ------------- 豆瓣模块 -------------
-    {
-      title: "豆瓣自定义片单",
-      description: "支持桌面/移动端豆列、官方榜单",
-      requiresWebView: false,
-      functionName: "loadEnhancedDoubanList",
-      cacheDuration: 3600,
-      params: [
-        {
-          name: "url", title: "片单地址", type: "input",
-          placeholders: [
-              { title: "豆瓣电影实时热榜", value: "https://www.douban.com/doubanapp/dispatch?uri=/subject_collection/movie_real_time_hotest/&dt_dapp=1" },
-              { title: "豆瓣书影音实时热榜", value: "https://www.douban.com/doubanapp/dispatch?uri=/subject_collection/subject_real_time_hotest/&dt_dapp=1" }
-          ]
-        },
-        { name: "page", title: "页码", type: "page" }
-      ]
     }
   ]
 };
@@ -188,10 +108,10 @@ const CONSTANTS = {
         "西部": 37, "动作": 28, "冒险": 12, "历史": 36, "奇幻": 14, "恐怖": 27, "音乐": 10402,
         "爱情": 10749, "科幻": 878, "电视电影": 10770, "惊悚": 53, "战争": 10752
     },
-    MIN_VOTES: { movie: 50, tv: 30 },
-    POPULAR_STD: { movie: { count: 50, avg: 5.0 }, tv: { count: 10, avg: 5.0 } },
-    DOMESTIC_NETWORKS: ['2007', '1330', '1419', '1605', '1631'],
-    DOMESTIC_STD: { movie: { count: 15, avg: 4.5 }, tv: { count: 5, avg: 4.5 } }
+    // 国产剧集筛选标准：如果按评分排序，至少需要5个评分
+    DOMESTIC_STD: { minVoteCount: 5 },
+    // 默认筛选标准
+    DEFAULT_STD: { minVoteCount: 10 }
 };
 
 // ================= 缓存与存储 =================
@@ -243,13 +163,10 @@ function isBlocked(item) {
     const idSet = getBlockedIdSet();
     const sid = String(item.id);
     
-    // ID匹配 (简单ID 或 ID_Media类型)
+    // ID匹配
     if (idSet.has(sid)) return true;
     const mType = item.mediaType || item.media_type;
     if (mType && idSet.has(`${sid}_${mType}`)) return true;
-    
-    // 豆瓣ID匹配
-    if (item.originalDoubanId && idSet.has(String(item.originalDoubanId))) return true;
     
     // 类型匹配
     if (item.genre_ids && Array.isArray(item.genre_ids) && item.genre_ids.length > 0) {
@@ -312,7 +229,7 @@ function getTmdbGenreTitles(ids, type) {
 }
 
 // 通用 TMDB 获取与处理
-async function fetchTmdbBase(endpoint, params, mediaTypeOverride) {
+async function fetchTmdbBase(endpoint, params) {
     const [data, _] = await Promise.all([
         Widget.tmdb.get(endpoint, { params }),
         fetchTmdbGenres()
@@ -320,7 +237,7 @@ async function fetchTmdbBase(endpoint, params, mediaTypeOverride) {
 
     const rawResults = data.results || [];
     const results = rawResults.map(item => {
-        const mType = mediaTypeOverride || item.media_type || (item.title ? 'movie' : 'tv');
+        const mType = item.media_type || (item.title ? 'movie' : 'tv');
         return {
             id: String(item.id),
             type: "tmdb",
@@ -342,93 +259,29 @@ async function fetchTmdbBase(endpoint, params, mediaTypeOverride) {
     return filterBlockedItemsEnhanced(results);
 }
 
-// ================= 业务功能实现 =================
-
-// 1. 热门内容 (合并 TV 和 Movie)
-async function loadHotContent(params, type) {
-    const page = parseInt(params.page) || 1;
-    const region = params.sort_by || '';
-    const isCN = region === 'CN';
-    
-    // 远程 Trending 数据 (仅第一页且无筛选时)
-    if (page === 1 && !region) {
-        try {
-            const remote = await Widget.http.get("https://for-ward.vercel.app/data/TMDB_Trending.json").then(r => r.data);
-            const list = type === 'tv' ? remote.today_tv : remote.today_movies;
-            const items = list.filter(i => i.type === type && i.poster_url && i.genre_ids?.length).map(i => ({
-                id: String(i.id), type: "tmdb", title: i.title, description: i.overview,
-                releaseDate: i.release_date, posterPath: i.poster_url, backdropPath: i.title_backdrop,
-                rating: i.rating, mediaType: type, genreTitle: i.genreTitle, genre_ids: i.genre_ids || []
-            })).slice(0, 20);
-            return filterBlockedItemsEnhanced(items);
-        } catch (e) {}
-    }
-
-    const std = isCN ? CONSTANTS.DOMESTIC_STD[type] : CONSTANTS.POPULAR_STD[type];
-    const apiParams = {
-        language: params.language || 'zh-CN',
-        page,
-        sort_by: 'popularity.desc',
-        'vote_count.gte': std.count,
-        'vote_average.gte': std.avg,
-        with_origin_country: region || undefined
-    };
-    return await fetchTmdbBase(`/discover/${type}`, apiParams, type);
-}
-
-// 暴露给 Forward 的入口函数
-async function loadTodayHotTV(params) { return loadHotContent(params, 'tv'); }
-async function loadTodayHotMovies(params) { return loadHotContent(params, 'movie'); }
-
-// 2. Top Rated
-async function tmdbTopRated(params) {
-    const type = params.type || 'movie';
-    const minVotes = CONSTANTS.MIN_VOTES[type];
-    return await fetchTmdbBase(`/${type}/top_rated`, { ...params, 'vote_count.gte': minVotes }, type);
-}
-
-// 3. 按平台发现
+// ================= 1. 按平台发现 (保留核心功能) =================
 async function tmdbDiscoverByNetwork(params = {}) {
     const sortBy = params.sort_by || "first_air_date.desc";
     const apiParams = {
-        language: params.language || 'zh-CN', page: params.page || 1,
-        with_networks: params.with_networks, sort_by: sortBy,
+        language: params.language || 'zh-CN', 
+        page: params.page || 1,
+        with_networks: params.with_networks, 
+        sort_by: sortBy,
         with_genres: params.with_genres,
         'first_air_date.lte': params.air_status === 'released' ? getBeijingDate() : undefined,
         'first_air_date.gte': params.air_status === 'upcoming' ? getBeijingDate() : undefined
     };
     
+    // 如果按评分排序，增加最小投票数限制，避免垃圾数据
     if (sortBy === 'vote_average.desc') {
-        const isDomestic = CONSTANTS.DOMESTIC_NETWORKS.includes(String(params.with_networks));
-        apiParams['vote_count.gte'] = isDomestic ? CONSTANTS.DOMESTIC_STD.tv.count : CONSTANTS.MIN_VOTES.tv;
+        const isDomestic = ['2007', '1330', '1419', '1605', '1631'].includes(String(params.with_networks));
+        apiParams['vote_count.gte'] = isDomestic ? CONSTANTS.DOMESTIC_STD.minVoteCount : CONSTANTS.DEFAULT_STD.minVoteCount;
     }
+
     return await fetchTmdbBase('/discover/tv', apiParams);
 }
 
-// 4. 按公司发现
-async function tmdbCompanies(params = {}) {
-    const sortBy = params.sort_by || "primary_release_date.desc";
-    const apiParams = {
-        page: params.page || 1, language: "zh-CN", sort_by: sortBy,
-        with_companies: params.with_companies,
-        with_genres: params.with_genres,
-        include_adult: false, include_video: false
-    };
-
-    if (sortBy === 'vote_average.desc') apiParams['vote_count.gte'] = CONSTANTS.MIN_VOTES.movie;
-    else if (sortBy === 'popularity.desc') {
-        apiParams['vote_count.gte'] = CONSTANTS.POPULAR_STD.movie.count;
-        apiParams['vote_average.gte'] = CONSTANTS.POPULAR_STD.movie.avg;
-    }
-
-    const dateKey = 'primary_release_date';
-    if (params.air_status === 'released') apiParams[`${dateKey}.lte`] = getBeijingDate();
-    else if (params.air_status === 'upcoming') apiParams[`${dateKey}.gte`] = getBeijingDate();
-
-    return await fetchTmdbBase('/discover/movie', apiParams);
-}
-
-// 5. 搜索与屏蔽
+// ================= 2. 搜索与屏蔽 (保留) =================
 async function searchAndBlock(params) {
     const { block_type, action, query, language = "zh-CN" } = params;
 
@@ -504,7 +357,7 @@ async function searchAndBlock(params) {
     } catch (e) { return [createMsg("error", "搜索失败", e.message)]; }
 }
 
-// 6. 屏蔽管理
+// ================= 3. 屏蔽管理 (保留) =================
 async function manageBlockedItems(params) {
     const { manage_type, action } = params;
 
@@ -554,82 +407,6 @@ async function manageBlockedItems(params) {
         posterPath: i.poster_path ? `https://image.tmdb.org/t/p/w500${i.poster_path}` : "",
         mediaType: manage_type === "genres" ? "genre" : i.media_type
     }));
-}
-
-// ================= 豆瓣模块 (逻辑简化) =================
-const DoubanRules = [
-    { p: /^\u771f\u7684\u662f\u5f88\u4e0d\u9519\u7684\u4eba/, r: '\uc9c4\uc9dc \uad1c\ucc2e\uc740 \uc0ac\ub78c' },
-    { p: / \u7b2c[^\u5b63]*\u5b63/, r: '' },
-    { p: /^\u5954\u8dd1\u5427(?! ?\u5144\u5f1f)/, r: '\u5954\u8dd1\u5427\u5144\u5f1f' },
-    { p: /^\u6700\u540e\u590d\u6d3b\u6218/, r: '\u30d5\u30a1\u30a4\u30ca\u30eb\u30c9\u30e9\u30d5\u30c8' }
-];
-
-async function loadEnhancedDoubanList(params) {
-    const url = params.url || "";
-    if (url.includes("doulist")) return loadDoubanList(params, "doulist");
-    if (url.includes("subject_collection")) return loadDoubanList(params, "collection");
-    if (url.includes("dispatch")) {
-        const uriMatch = url.match(/uri=([^&]+)/);
-        if (uriMatch) {
-            const uri = decodeURIComponent(uriMatch[1]);
-            const target = `https://m.douban.com${uri.startsWith('/') ? uri : '/' + uri}`;
-            return loadEnhancedDoubanList({ ...params, url: target });
-        }
-    }
-    return [];
-}
-
-async function loadDoubanList(params, type) {
-    const page = params.page || 1;
-    const count = 20;
-    const start = (page - 1) * count;
-    
-    // 构造 URL
-    let items = [];
-    
-    if (type === "doulist") {
-        const lid = params.url.match(/doulist\/(\d+)/)?.[1];
-        if (!lid) return [];
-        const res = await Widget.http.get(`https://www.douban.com/doulist/${lid}/?start=${start}&sort=seq&playable=0&sub_type=`, {
-            headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/91.0.4472.124" }
-        });
-        const dom = Widget.dom.parse(res.data);
-        const els = Widget.dom.select(dom, ".doulist-item .title a");
-        for (const el of els) {
-            items.push({ title: (await Widget.dom.text(el)).trim().split(' ')[0], type: "multi" });
-        }
-    } else {
-        const lid = params.url.match(/subject_collection\/(\w+)/)?.[1];
-        if (!lid) return [];
-        const res = await Widget.http.get(`https://m.douban.com/rexxar/api/v2/subject_collection/${lid}/items?start=${start}&count=${count}&items_only=1&for_mobile=1`, {
-            headers: { Referer: `https://m.douban.com/subject_collection/${lid}/` }
-        });
-        items = res.data.subject_collection_items || [];
-    }
-    
-    // 匹配 TMDB
-    const results = await Promise.all(items.map(async item => {
-        let title = item.title;
-        // 简单正则替换
-        for (const rule of DoubanRules) if (rule.p.test(title)) title = title.replace(rule.p, rule.r);
-        
-        try {
-            const searchRes = await Widget.tmdb.get("/search/multi", { params: { query: title, language: "zh-CN" } });
-            const match = (searchRes.results || []).find(i => i.poster_path && (i.title || i.name));
-            
-            if (match) {
-                return {
-                    id: String(match.id), type: "tmdb", title: match.title || match.name,
-                    description: match.overview, releaseDate: match.release_date || match.first_air_date,
-                    posterPath: match.poster_path, rating: match.vote_average, mediaType: match.media_type,
-                    genreTitle: getTmdbGenreTitles(match.genre_ids, match.media_type)
-                };
-            }
-        } catch {}
-        return null;
-    }));
-    
-    return filterBlockedItemsEnhanced(results.filter(Boolean));
 }
 
 // ================= 辅助函数 =================
