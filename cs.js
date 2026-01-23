@@ -1,5 +1,5 @@
 WidgetMetadata = {
-  id: "bilibili.rank.official.standard.v5", // 使用新 ID 彻底清除缓存冲突
+  id: "bilibili.bangumi.official.standard.v1", // 必须使用新 ID 以避开 App 缓存
   title: "B站番剧排行",
   version: "1.0.0",
   requiredVersion: "0.0.1",
@@ -11,11 +11,11 @@ WidgetMetadata = {
       id: "popularRank",
       title: "热门番剧榜",
       functionName: "popularRank",
-      // 官方标准：使用 number 类型参数触发无限滚动
+      // 官方标准参数：number 类型会自动触发 App 滚动翻页逻辑
       params: [
         {
           name: "page",
-          title: "页码",
+          title: "起始页",
           type: "number",
           default: 1
         }
@@ -24,8 +24,8 @@ WidgetMetadata = {
   ]
 };
 
-// --- 全局配置 ---
-const TMDB_API_KEY = "cf2190683e55fad0f978c719d0bc1c68"; // ← 请填入你的 API KEY
+// --- 全局配置：请在此填入你的 API KEY ---
+const TMDB_API_KEY = "请自行填写"; 
 
 /**
  * 官方标准清洗逻辑
@@ -36,26 +36,26 @@ function clean(t) {
 }
 
 /**
- * 官方标准匹配封装
+ * 官方标准匹配封装：严格对齐字段与类型
  */
 async function fetchItem(item) {
   if (!TMDB_API_KEY || TMDB_API_KEY === "请自行填写") return null;
   try {
     const q = clean(item.title);
-    const url = `https://api.themoviedb.org/3/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(q)}&language=zh-CN`;
+    const url = "https://api.themoviedb.org/3/search/tv?api_key=" + TMDB_API_KEY + "&query=" + encodeURIComponent(q) + "&language=zh-CN";
     const res = await Widget.http.get(url);
     const m = res.data?.results?.[0];
 
-    // 严选逻辑：仅保留有高清海报的项
+    // 严选逻辑：无高清海报项直接舍弃
     if (m && m.poster_path) {
       return {
-        id: m.id.toString(), // 必须为字符串
-        type: "bangumi",     // 必须为 bangumi
+        id: m.id.toString(), // 必须为字符串类型
+        type: "bangumi",     // 必须为 bangumi 类型
         title: item.title,
         description: m.overview || "",
         posterPath: "https://image.tmdb.org/t/p/w500" + m.poster_path,
         backdropPath: m.backdrop_path ? "https://image.tmdb.org/t/p/original" + m.backdrop_path : "",
-        // 关键：必须包含完整 tmdbInfo 且 mediaType 为 tv
+        // 关键字段：必须包含完整 tmdbInfo 且 mediaType 为 tv
         tmdbInfo: { 
           id: m.id.toString(), 
           mediaType: "tv" 
@@ -70,23 +70,22 @@ async function fetchItem(item) {
 }
 
 /**
- * 官方标准入口函数
+ * 模块入口：对齐官方翻页与解析逻辑
  */
 async function popularRank(params) {
   try {
-    // 1. 解析分页
+    // 自动分页解析
     const page = (params && params.page) ? parseInt(params.page) : 1;
     const start = (page - 1) * 20;
 
-    // 限制 100 条 (5页)
+    // B 站排行榜总计 100 条
     if (start >= 100) return [];
 
-    // 2. 获取 B站 排行榜
     const res = await Widget.http.get("https://api.bilibili.com/pgc/season/rank/web/list?season_type=1&day=3", {
       headers: { "Referer": "https://www.bilibili.com/" }
     });
 
-    // 3. 多重解析 B站 数据层级
+    // 官方级多重路径解析
     let rawList = [];
     if (res.data) {
       rawList = res.data.result?.list || res.data.data?.list || res.data.list || [];
@@ -94,11 +93,10 @@ async function popularRank(params) {
 
     if (rawList.length === 0) return [];
 
-    // 4. 截取分页并并行匹配 TMDB
     const pageItems = rawList.slice(start, start + 20);
     const results = await Promise.all(pageItems.map(item => fetchItem(item)));
     
-    // 5. 过滤掉匹配失败的项
+    // 仅返回匹配成功项
     return results.filter(i => i !== null);
 
   } catch (e) {
