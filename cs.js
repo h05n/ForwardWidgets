@@ -1,5 +1,5 @@
 // ===========================================
-// Forward Widget: 动画榜单 (Origin Filter Only)
+// Forward Widget: 动画榜单 (Japan Only)
 // Version: 1.0.0
 // ===========================================
 
@@ -16,7 +16,7 @@ const CONFIG = {
 };
 
 WidgetMetadata = {
-  id: "bangdan", // 严格保留 ID 不变
+  id: "bangdan", // ID 保持不变
   title: "动画榜单",
   description: "动画榜单",
   author: "，",
@@ -27,7 +27,7 @@ WidgetMetadata = {
   modules: [
     {
       title: "动画榜单",
-      description: "浏览国内平台引进的海外动画",
+      description: "浏览国内平台引进的日本动画",
       requiresWebView: false,
       functionName: "moduleDiscover",
       cacheDuration: 3600, 
@@ -124,18 +124,16 @@ async function moduleDiscover(args) {
         return results
             .filter(item => item.name && item.poster_path)
             
-            // --- 核心修改：仅使用产地过滤 ---
+            // --- 核心修改：只保留日本 (JP) ---
             .filter(item => {
-                // 如果产地信息存在，且包含 "CN" (中国大陆)，则剔除
-                // 这样会保留 JP(日本), US(美国) 等所有非中国产地的动画
-                // 同时不再误杀 "zh" 语言的非国产内容（如果有的话）
-                if (item.origin_country && item.origin_country.includes('CN')) {
+                // 如果没有产地信息，或者产地列表里不包含 "JP"，直接过滤掉
+                if (!item.origin_country || !item.origin_country.includes('JP')) {
                     return false;
                 }
                 return true;
             })
             
-            // 辅助过滤：动态漫
+            // 辅助过滤
             .filter(item => !CONFIG.FILTER_WORDS.some(word => item.name.includes(word)))
             
             .map(item => Render.card(item));
