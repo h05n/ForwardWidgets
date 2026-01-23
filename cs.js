@@ -1,17 +1,17 @@
 // ===========================================
-// Forward Widget: 哔哩哔哩番剧榜 (Native Fixed)
-// Version: 2.0.0
+// Forward Widget: 哔哩哔哩番剧榜 (No Jump)
+// Version: 2.1.0
 // ===========================================
 
 WidgetMetadata = {
-  id: "bilibili_rank_v2",
+  id: "bilibili_rank_v2", // 保持ID以便覆盖之前的缓存
   title: "B站番剧榜",
-  description: "B站官方番剧热门榜 (纯净日漫版)",
+  description: "B站官方番剧热门榜 (无跳转版)",
   author: "ForwardUser",
   site: "https://www.bilibili.com",
-  version: "2.0.0",
+  version: "2.1.0",
   requiredVersion: "0.0.1",
-  detailCacheDuration: 0, 
+  detailCacheDuration: 60, 
   modules: [
     {
       title: "B站番剧",
@@ -43,19 +43,18 @@ WidgetMetadata = {
 // ================= 核心工具 =================
 
 const Render = {
-    // 渲染卡片 (点击跳转B站)
+    // 渲染卡片 (改为 tmdb 类型，只展示不跳转)
     card: (item, rank) => ({
         id: String(item.season_id), 
-        type: "link", // 使用链接类型，点击直接跳转
-        // 尝试唤起B站APP，失败则跳网页
-        url: `https://www.bilibili.com/bangumi/play/ss${item.season_id}`, 
+        type: "tmdb", // 核心修改：改回 tmdb 类型，取消 link 跳转
         title: item.title, 
-        // B站API封面有时缺协议头
+        // 图片容错处理
         posterPath: item.cover.startsWith("http") ? item.cover : `https:${item.cover}`,
-        // 用“更新进度”作为描述
+        // 简介显示更新进度
         overview: item.new_ep ? item.new_ep.index_show : (item.desc || "暂无简介"), 
-        // 榜单数据没日期，显示排名
-        releaseDate: `TOP ${rank}`, 
+        // 借用日期字段显示排名
+        releaseDate: `当前排名: 第${rank}名`, 
+        rating: 0, // 榜单接口不带评分，置0
         mediaType: "tv"
     }),
     info: (title, desc) => ({
@@ -72,55 +71,42 @@ const Render = {
 async function moduleBilibiliRank(args) {
     const { rank_type, page_num } = args;
     
-    // 页码计算：B站接口一次返回全部(约50-100条)，我们本地切片
     const p = parseInt(page_num) || 1;
     const pageSize = 10;
     const startIdx = (p - 1) * pageSize;
     const endIdx = startIdx + pageSize;
 
     // B站官方 PGC Web 榜单 API
-    // season_type=1: 番剧 (日漫)
-    // season_type=4: 国创 (国漫) -> 我们不查这个，所以绝对没有国漫
+    // season_type=1: 锁死番剧 (日漫)
     const API_URL = "https://api.bilibili.com/pgc/web/rank/list";
     
     try {
         const res = await Widget.http.get(API_URL, { 
             params: {
-                day: rank_type || "3", // 3日或7日
-                season_type: "1"       // 核心：锁死番剧区
+                day: rank_type || "3", 
+                season_type: "1"       
             },
-            // 关键修复：添加请求头，防止被B站拦截
+            // 必须带请求头，否则B站拦截
             headers: {
                 "Referer": "https://www.bilibili.com/",
                 "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1"
             }
         });
         
-        // 容错校验：检查数据结构
         if (!res || !res.result || !res.result.list) {
-            // 如果被拦截，打印Code以便调试
-            const errCode = res ? res.code : "未知";
-            return [Render.info("加载异常", `B站接口拒绝访问 (Code: ${errCode})`)];
+            return [Render.info("加载异常", "B站接口未返回数据，请稍后重试")];
         }
 
         const fullList = res.result.list;
-        
-        // 如果数据为空
-        if (fullList.length === 0) {
-            return [Render.info("暂无数据", "榜单暂时为空")];
-        }
-
-        // 执行本地分页
         const pageItems = fullList.slice(startIdx, endIdx);
 
         if (pageItems.length === 0) {
             return [Render.info("到底了", "后面没有更多内容了")];
         }
 
-        // 渲染列表 (传入 index 计算排名)
         return pageItems.map((item, index) => Render.card(item, startIdx + index + 1));
 
     } catch (e) {
-        return [Render.info("网络错误", "无法连接到哔哩哔哩服务器")];
+        return [Render.info("网络错误", "无法连接到哔哩哔哩")];
     }
 }
