@@ -1,5 +1,5 @@
 // ===========================================
-// Forward Widget: 动画榜单 (No 3D Hardcoded)
+// Forward Widget: 动画榜单 (No Chinese Anime)
 // Version: 1.0.0
 // ===========================================
 
@@ -7,25 +7,12 @@ const CONFIG = {
     // 基础配置
     CN_NETWORKS: "1605|2007|1330|1419|1631",
     BASE_GENRE: "16",
+    
+    // 屏蔽配置
     BLOCK_GENRE: "10762", // 屏蔽儿童
     
-    // --- 3D / 动态漫 净化配置 ---
-    // TMDB没有3D标签，只能靠“错杀一千”的关键词和“定点爆破”的标题库
-    
-    // 1. 通用关键词拦截 (标题含这些必杀)
-    FILTER_KEYWORDS: ["3D", "3d", "动态漫", "动态漫画", "重制版"],
-
-    // 2. 知名3D/爽文动画内置黑名单 (专杀深空彼岸这类)
-    // 只要标题包含以下任意词组，直接屏蔽
-    BUILT_IN_BLOCK: [
-        "深空彼岸", "斗罗大陆", "凡人修仙传", "吞噬星空", 
-        "完美世界", "遮天", "斗破苍穹", "神印王座", 
-        "仙逆", "绝世武神", "武动乾坤", "星辰变",
-        "雪鹰领主", "武庚纪", "西行纪", "元龙",
-        "天宝伏妖录", "眷思量", "少年歌行", "墓王之王",
-        "画江湖", "不良人", "秦时明月", "天行九歌", // 若森系列
-        "万界", "无上", "独步", "武神", "系统" // 烂大街的3D爽文常用词
-    ]
+    // 标题关键词屏蔽 (保留这个作为辅助，防止有漏网的重制版)
+    FILTER_WORDS: ["3D", "动态漫", "动态漫画"]
 };
 
 WidgetMetadata = {
@@ -40,7 +27,7 @@ WidgetMetadata = {
   modules: [
     {
       title: "动画榜单",
-      description: "浏览国内平台已开播的动画",
+      description: "浏览国内平台引进的海外动画",
       requiresWebView: false,
       functionName: "moduleDiscover",
       cacheDuration: 3600, 
@@ -135,21 +122,15 @@ async function moduleDiscover(args) {
         const results = res.results || [];
 
         return results
-            // 基础数据清洗
+            // 基础清洗
             .filter(item => item.name && item.poster_path)
             
-            // --- 智能 3D 拦截 ---
-            .filter(item => {
-                const name = item.name;
-                
-                // 1. 检查通用屏蔽词 (3D, 动态漫)
-                if (CONFIG.FILTER_KEYWORDS.some(k => name.includes(k))) return false;
-                
-                // 2. 检查内置黑名单 (深空彼岸, 斗罗等)
-                if (CONFIG.BUILT_IN_BLOCK.some(blockTitle => name.includes(blockTitle))) return false;
-                
-                return true;
-            })
+            // --- 核心修改：直接屏蔽国漫 ---
+            // 过滤掉所有源语言为中文(zh)的内容，彻底根除国产3D
+            .filter(item => item.original_language !== 'zh')
+            
+            // 辅助过滤：防止有部分漏网之鱼
+            .filter(item => !CONFIG.FILTER_WORDS.some(word => item.name.includes(word)))
             
             .map(item => Render.card(item));
 
