@@ -1,25 +1,24 @@
 // ===========================================
-// Forward Widget: 哔哩哔哩番剧榜 (Bilibili Native)
-// Version: 1.0.0
-// Author: Optimized by Gemini
+// Forward Widget: 哔哩哔哩番剧榜 (Native Fixed)
+// Version: 2.0.0
 // ===========================================
 
 WidgetMetadata = {
-  id: "bilibili_rank",
+  id: "bilibili_rank_v2",
   title: "B站番剧榜",
-  description: "直接同步B站官方番剧热门榜",
+  description: "B站官方番剧热门榜 (纯净日漫版)",
   author: "ForwardUser",
   site: "https://www.bilibili.com",
-  version: "1.0.0",
+  version: "2.0.0",
   requiredVersion: "0.0.1",
-  detailCacheDuration: 60, 
+  detailCacheDuration: 0, 
   modules: [
     {
       title: "B站番剧",
       description: "查看B站热门日本番剧",
       requiresWebView: false,
       functionName: "moduleBilibiliRank",
-      cacheDuration: 3600, // 缓存60分钟
+      cacheDuration: 1800, // 缓存30分钟
       params: [
         {
           name: "rank_type", title: "榜单类型", type: "enumeration", value: "3",
@@ -41,21 +40,22 @@ WidgetMetadata = {
   ]
 };
 
-// ================= 核心渲染 =================
+// ================= 核心工具 =================
 
 const Render = {
-    // 转换 B站数据 -> Forward 卡片
-    card: (item) => ({
+    // 渲染卡片 (点击跳转B站)
+    card: (item, rank) => ({
         id: String(item.season_id), 
-        type: "link", // 点击跳转类型
-        url: item.link || `https://www.bilibili.com/bangumi/play/ss${item.season_id}`, // 跳转B站播放
+        type: "link", // 使用链接类型，点击直接跳转
+        // 尝试唤起B站APP，失败则跳网页
+        url: `https://www.bilibili.com/bangumi/play/ss${item.season_id}`, 
         title: item.title, 
-        // B站API里的封面通常没有协议头，要做容错处理
+        // B站API封面有时缺协议头
         posterPath: item.cover.startsWith("http") ? item.cover : `https:${item.cover}`,
-        // B站没有评分字段，用“追番人数”或“更新进度”代替简介
+        // 用“更新进度”作为描述
         overview: item.new_ep ? item.new_ep.index_show : (item.desc || "暂无简介"), 
-        // 榜单数据通常不含日期，这里留空或填当前
-        releaseDate: "Bilibili", 
+        // 榜单数据没日期，显示排名
+        releaseDate: `TOP ${rank}`, 
         mediaType: "tv"
     }),
     info: (title, desc) => ({
@@ -72,45 +72,55 @@ const Render = {
 async function moduleBilibiliRank(args) {
     const { rank_type, page_num } = args;
     
-    // 页码计算：B站榜单一次返回前50-100名，我们在本地做切片
+    // 页码计算：B站接口一次返回全部(约50-100条)，我们本地切片
     const p = parseInt(page_num) || 1;
-    const pageSize = 10; // 每页显示10个
+    const pageSize = 10;
     const startIdx = (p - 1) * pageSize;
     const endIdx = startIdx + pageSize;
 
-    // B站官方接口 (Web端 PGC 榜单)
-    // season_type=1 代表番剧(日漫)，season_type=4 代表国创(国漫)
-    // 我们锁死 type=1，这就彻底过滤了国产3D
+    // B站官方 PGC Web 榜单 API
+    // season_type=1: 番剧 (日漫)
+    // season_type=4: 国创 (国漫) -> 我们不查这个，所以绝对没有国漫
     const API_URL = "https://api.bilibili.com/pgc/web/rank/list";
     
     try {
         const res = await Widget.http.get(API_URL, { 
             params: {
-                day: rank_type || "3", // 3=三日榜, 7=周榜
-                season_type: "1"       // 核心：锁死番剧区 (Japan Only)
+                day: rank_type || "3", // 3日或7日
+                season_type: "1"       // 核心：锁死番剧区
             },
+            // 关键修复：添加请求头，防止被B站拦截
             headers: {
+                "Referer": "https://www.bilibili.com/",
                 "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1"
             }
         });
         
-        // 检查返回数据结构
+        // 容错校验：检查数据结构
         if (!res || !res.result || !res.result.list) {
-            return [Render.info("加载异常", "B站接口未返回预期数据")];
+            // 如果被拦截，打印Code以便调试
+            const errCode = res ? res.code : "未知";
+            return [Render.info("加载异常", `B站接口拒绝访问 (Code: ${errCode})`)];
         }
 
         const fullList = res.result.list;
         
-        // 本地分页切片
+        // 如果数据为空
+        if (fullList.length === 0) {
+            return [Render.info("暂无数据", "榜单暂时为空")];
+        }
+
+        // 执行本地分页
         const pageItems = fullList.slice(startIdx, endIdx);
 
         if (pageItems.length === 0) {
             return [Render.info("到底了", "后面没有更多内容了")];
         }
 
-        return pageItems.map(item => Render.card(item));
+        // 渲染列表 (传入 index 计算排名)
+        return pageItems.map((item, index) => Render.card(item, startIdx + index + 1));
 
     } catch (e) {
-        return [Render.info("网络错误", "无法连接到哔哩哔哩")];
+        return [Render.info("网络错误", "无法连接到哔哩哔哩服务器")];
     }
 }
