@@ -1,9 +1,9 @@
 WidgetMetadata = {
-  id: "bilibili.bangumi.final",
-  title: "B站番剧数据",
+  id: "bilibili.bangumi.only.rank", // 更改 ID 以强制刷新缓存
+  title: "B站番剧排行",
   version: "1.0.0",
   requiredVersion: "0.0.1",
-  description: "仅保留热门番剧榜，对齐 TMDB 官方封面逻辑",
+  description: "仅包含 B站 热门番剧榜，完全对齐 TMDB 高清海报",
   author: "Forward",
   site: "https://www.bilibili.com/anime/",
   modules: [
@@ -30,12 +30,13 @@ function cleanTitle(title) {
 }
 
 /**
- * TMDB 搜索核心：请在下方 apiKey 处填入你自己的密钥
+ * TMDB 搜索核心：请仅在下方 apiKey 处填写一次
  */
 async function getTmdbStandard(originalTitle) {
   try {
     const query = cleanTitle(originalTitle);
-    // ↓ 请在此处填写你的 API Key
+    
+    // ↓ 请在此处填写你的真实 API Key
     const apiKey = "cf2190683e55fad0f978c719d0bc1c68"; 
     
     if (apiKey === "请自行填写") {
@@ -47,7 +48,7 @@ async function getTmdbStandard(originalTitle) {
     const res = await Widget.http.get(searchUrl);
     
     if (res.data && res.data.results && res.data.results.length > 0) {
-      // 优先匹配类型为 tv (动漫剧集) 的结果，防止匹配到真人电影
+      // 优先匹配类型为 tv (动漫剧集) 的结果
       const match = res.data.results.find(i => i.media_type === "tv") || res.data.results[0];
       
       return {
@@ -74,7 +75,6 @@ async function formatWithTmdb(biliList) {
   for (const item of biliList) {
     const tmdb = await getTmdbStandard(item.title);
     
-    // 只有在 TMDB 匹配到高清海报时才展示
     if (tmdb && tmdb.posterPath) {
       const sid = (item.season_id || item.ss_id || "").toString();
       
@@ -102,7 +102,7 @@ async function formatWithTmdb(biliList) {
 }
 
 /**
- * 模块入口：热门番剧榜
+ * 模块入口：仅保留热门番剧榜
  */
 async function popularRank() {
   try {
@@ -110,7 +110,7 @@ async function popularRank() {
     const res = await Widget.http.get(url, { headers: { "Referer": "https://www.bilibili.com/" } });
     
     const list = res.data.result?.list || res.data.data?.list || [];
-    // 每次刷新匹配前 15 条，保证显示质量与加载速度
+    // 每次刷新匹配前 15 条，确保显示质量
     return await formatWithTmdb(list.slice(0, 15));
   } catch (e) {
     console.log("获取 B站排行失败: " + e.message);
