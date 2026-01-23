@@ -1,11 +1,14 @@
 // ===========================================
-// Forward Widget: 全球日漫榜 (Stable & Clean)
+// Forward Widget: 全球日漫榜 (Streamlined Edition)
 // Version: 1.0.0
 // ===========================================
 
 const CONFIG = {
-    // 聚合：国内五大平台 + 国际主流 (Netflix, Disney+, Crunchyroll)
-    ALL_NETWORKS: "1605|2007|1330|1419|1631|213|2739|1112",
+    // 精简后的核心聚合
+    CN_CORE: "1605|2007|1330", // B站, 腾讯, 爱奇艺
+    INTL_CORE: "213|2739|1112|4595", // Netflix, Disney+, Crunchyroll, dAnime
+    GLOBAL_ALL: "1605|2007|1330|1419|1631|213|2739|1112|4595|1857",
+    
     BASE_GENRE: "16", 
     BLOCK_GENRE: "10762" 
 };
@@ -13,32 +16,30 @@ const CONFIG = {
 WidgetMetadata = {
   id: "bangdan_global_v4", 
   title: "日漫榜单",
-  description: "聚合全球平台的纯净日漫榜单",
+  description: "聚合全球核心平台的纯净日漫榜单",
   author: "，",
-  site: "https://github.com/h05n/ForwardWidgets",
   version: "1.0.0", 
-  requiredVersion: "0.0.1",
   detailCacheDuration: 60, 
   modules: [
     {
       title: "日漫榜单",
-      description: "浏览正版引进的日本番剧",
-      requiresWebView: false,
       functionName: "moduleDiscover",
       cacheDuration: 3600, 
       params: [
         {
-          name: "platform", title: "播出平台", type: "enumeration", value: "", 
+          name: "platform", title: "选择平台", type: "enumeration", value: "", 
           enumOptions: [
-            { title: "全部平台", value: "" }, 
-            { title: "哔哩哔哩", value: "1605" },
-            { title: "腾讯视频", value: "2007" },
-            { title: "爱奇艺", value: "1330" },
-            { title: "优酷", value: "1419" },
-            { title: "芒果TV", value: "1631" }
+            { title: "全部 (全球聚合)", value: "" }, 
+            { title: "国内聚合 (三大平台)", value: CONFIG.CN_CORE },
+            { title: "国外聚合 (四大巨头)", value: CONFIG.INTL_CORE },
+            // 细分单选 - 仅保留王者平台
+            { title: "├ 哔哩哔哩 (日漫主力)", value: "1605" },
+            { title: "├ 腾讯视频", value: "2007" },
+            { title: "├ Netflix (独家大作)", value: "213" },
+            { title: "├ Disney+ (重磅新番)", value: "2739" },
+            { title: "└ d Anime (日本最全)", value: "4595" }
           ]
         },
-        // 极致去重分类：按照观看需求划分，避免内容交叉
         {
           name: "genre", title: "动画题材", type: "enumeration", value: "",
           enumOptions: [
@@ -91,15 +92,12 @@ const getBeijingToday = () => {
     return bjTime.toISOString().split('T')[0];
 };
 
-// ================= 模块实现 =================
-
 async function moduleDiscover(args) {
     const { platform, genre, page_num } = args;
     const p = parseInt(page_num) || 1;
-    const targetPlatform = platform || CONFIG.ALL_NETWORKS;
+    const targetPlatform = platform || CONFIG.GLOBAL_ALL;
 
     try {
-        // 使用最稳定的 Widget.tmdb 通道，彻底规避 B 站 403 报错
         const res = await Widget.tmdb.get('/discover/tv', { 
             params: {
                 language: 'zh-CN', 
@@ -107,7 +105,6 @@ async function moduleDiscover(args) {
                 sort_by: 'first_air_date.desc',
                 with_networks: targetPlatform,
                 with_genres: genre ? `${CONFIG.BASE_GENRE},${genre}` : CONFIG.BASE_GENRE,
-                // 核心过滤逻辑：锁死日语，屏蔽国产3D
                 with_original_language: 'ja', 
                 without_genres: CONFIG.BLOCK_GENRE, 
                 'first_air_date.lte': getBeijingToday()
@@ -115,12 +112,8 @@ async function moduleDiscover(args) {
         });
         
         const results = res.results || [];
-
-        return results
-            .filter(item => item.name && item.poster_path)
-            .map(item => Render.card(item));
-
+        return results.filter(item => item.name && item.poster_path).map(item => Render.card(item));
     } catch (e) {
-        return [Render.info("加载失败", "数据通道异常，请检查网络")];
+        return [Render.info("加载失败", "数据通道异常")];
     }
 }
