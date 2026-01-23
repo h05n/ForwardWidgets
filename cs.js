@@ -1,5 +1,5 @@
 WidgetMetadata = {
-  id: "bilibili.bangumi.fixed",
+  id: "bilibili.bangumi.strict",
   title: "B站番剧数据",
   version: "1.0.0",
   requiredVersion: "0.0.1",
@@ -38,68 +38,55 @@ WidgetMetadata = {
   ],
 };
 
-/**
- * 严格适配 bangumi.js 的数据格式
- */
+// 严格适配参考文件的格式化函数
 function formatToBangumiStructure(item) {
   const sid = (item.season_id || item.ss_id || "").toString();
-  const title = item.title || "";
-  const img = item.cover || item.pic || "";
-  const poster = img.startsWith('http') ? img : "https:" + img;
-  const ratingNum = item.rating ? parseFloat(item.rating.replace("分", "")) : (item.pts ? parseFloat((item.pts / 10000).toFixed(1)) : 0);
-  const styles = item.styles ? item.styles.join("/") : (item.badge || "番剧");
+  const poster = (item.cover || item.pic || "").replace("http:", "https:");
   
-  // 构造 App 预期的嵌套 tmdbInfo 对象
+  // 必须构造这个嵌套对象，App 界面可能直接读取此处的字段
   const tmdbInfo = {
     id: sid,
     description: item.desc || item.evaluate || "",
     releaseDate: item.pub_time || item.pub_date || "",
     backdropPath: poster,
     posterPath: poster,
-    rating: ratingNum,
+    rating: item.rating ? parseFloat(item.rating) : (item.pts ? (item.pts/10000).toFixed(1) : 0),
     mediaType: "tv",
-    genreTitle: styles,
+    genreTitle: item.styles ? item.styles.join("/") : (item.badge || "番剧"),
     seasonInfo: item.index_show || item.new_ep?.index_show || ""
   };
 
   return {
     id: sid,
-    type: "bangumi", // 必须与参考文件一致
-    title: title,
+    type: "bangumi", // 严格使用 bangumi 类型
+    title: item.title || "",
     description: tmdbInfo.description,
     releaseDate: tmdbInfo.releaseDate,
-    backdropPath: poster,
-    posterPath: poster,
-    rating: ratingNum,
-    mediaType: "tv",
-    genreTitle: styles,
+    backdropPath: tmdbInfo.backdropPath,
+    posterPath: tmdbInfo.posterPath,
+    rating: tmdbInfo.rating,
+    mediaType: tmdbInfo.mediaType,
+    genreTitle: tmdbInfo.genreTitle,
     bangumiUrl: `https://www.bilibili.com/bangumi/play/ss${sid}`,
-    link: `https://www.bilibili.com/bangumi/play/ss${sid}`, 
-    tmdbInfo: tmdbInfo, // 核心：嵌套对象
+    tmdbInfo: tmdbInfo, // 必须包含嵌套对象
     hasTmdb: true,
     seasonInfo: tmdbInfo.seasonInfo,
-    originalTitle: title,
+    originalTitle: item.title || "",
     popularity: item.pts || 0,
-    voteCount: 0,
-    playerType: "app"
+    voteCount: 0
   };
 }
 
-// 每日播出
 async function dailySchedule(params) {
   try {
-    const response = await Widget.http.get("https://api.bilibili.com/pgc/web/timeline/v2?season_type=1", {
+    const res = await Widget.http.get("https://api.bilibili.com/pgc/web/timeline/v2?season_type=1", {
       headers: { "Referer": "https://www.bilibili.com/" }
     });
-    
-    if (!response || !response.data || !response.data.result) return [];
-    
-    const timeline = response.data.result.latest || [];
+    const timeline = res.data.result.latest || [];
     let dayValue = params.day || "today";
 
     if (dayValue === "today") {
       const now = new Date();
-      // B站接口: 1-7 代表周一到周日
       const dayMap = [7, 1, 2, 3, 4, 5, 6]; 
       dayValue = dayMap[now.getDay()].toString();
     }
@@ -107,24 +94,17 @@ async function dailySchedule(params) {
     const dayData = timeline.find(d => d.day_of_week.toString() === dayValue);
     return (dayData ? dayData.episodes : []).map(formatToBangumiStructure);
   } catch (e) {
-    console.log("dailySchedule error:", e.message);
     return [];
   }
 }
 
-// 近期注目
 async function trending(params) {
   try {
-    const response = await Widget.http.get("https://api.bilibili.com/pgc/season/rank/web/list?season_type=1&day=3", {
+    const res = await Widget.http.get("https://api.bilibili.com/pgc/season/rank/web/list?season_type=1&day=3", {
       headers: { "Referer": "https://www.bilibili.com/" }
     });
-    
-    if (!response || !response.data || !response.data.data) return [];
-    
-    const list = response.data.data.list || [];
-    return list.map(formatToBangumiStructure);
+    return (res.data.data.list || []).map(formatToBangumiStructure);
   } catch (e) {
-    console.log("trending error:", e.message);
     return [];
   }
 }
