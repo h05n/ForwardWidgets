@@ -1,11 +1,9 @@
 WidgetMetadata = {
-  id: "bilibili.rank.tmdb.test", 
+  id: "bilibili.rank.debug.100", 
   title: "B站番剧排行",
-  version: "3.2.0",
-  requiredVersion: "0.0.1",
-  description: "仅保留排行，支持 100 条分页，强制匹配动漫海报",
+  version: "3.3.0",
+  description: "带日志排查功能，支持 100 条分页",
   author: "Forward",
-  site: "https://www.bilibili.com/anime/",
   modules: [
     {
       id: "popularRank",
@@ -14,14 +12,14 @@ WidgetMetadata = {
       params: [
         {
           name: "page",
-          title: "选择分页 (1-100名)",
+          title: "选择分页",
           type: "enumeration",
           enumOptions: [
-            { title: "第 1 页 (01-20名)", value: "1" },
-            { title: "第 2 页 (21-40名)", value: "2" },
-            { title: "第 3 页 (41-60名)", value: "3" },
-            { title: "第 4 页 (61-80名)", value: "4" },
-            { title: "第 5 页 (81-100名)", value: "5" }
+            { title: "第 1 页 (01-20)", value: "1" },
+            { title: "第 2 页 (21-40)", value: "2" },
+            { title: "第 3 页 (41-60)", value: "3" },
+            { title: "第 4 页 (61-80)", value: "4" },
+            { title: "第 5 页 (81-100)", value: "5" }
           ]
         }
       ]
@@ -29,95 +27,75 @@ WidgetMetadata = {
   ]
 };
 
-/**
- * 标题清洗：自动剔除 B站 标题干扰项
- * 解决“蜡笔小新 第二季 (中文)”这种名称无法匹配的问题
- */
-function cleanTitle(title) {
-  if (!title) return "";
-  return title
-    .replace(/\s*第[一二三四五六七八九十\d]+[季期]/g, "")
-    .replace(/[\(（].*?[\)）]/g, "")
-    .replace(/！/g, "!")
-    .trim();
-}
+const API_KEY = "cf2190683e55fad0f978c719d0bc1c68"; // ← 必须填入你的真实 TMDB API Key
 
-/**
- * 获取 TMDB 标准数据
- * 强制 search/tv 以过滤同名真人电影（如《搏击俱乐部》）
- */
 async function getTmdbStandard(title) {
-  // ↓↓↓ 请在此处填写你的 API KEY ↓↓↓
-  const apiKey = "cf2190683e55fad0f978c719d0bc1c68"; 
-
-  if (!apiKey || apiKey === "请自行填写") return null;
-
+  if (!API_KEY || API_KEY === "请自行填写") {
+    console.log("【错误】未检测到 API Key，请在代码第 31 行填写！");
+    return null;
+  }
   try {
-    const query = cleanTitle(title);
-    const url = `https://api.themoviedb.org/3/search/tv?api_key=${apiKey}&query=${encodeURIComponent(query)}&language=zh-CN`;
+    const query = title.replace(/\s*第[一二三四五六七八九十\d]+[季期]/g, "").replace(/[\(（].*?[\)）]/g, "").trim();
+    const url = `https://api.themoviedb.org/3/search/tv?api_key=${API_KEY}&query=${encodeURIComponent(query)}&language=zh-CN`;
     const res = await Widget.http.get(url);
-    
     if (res.data?.results?.length > 0) {
       const match = res.data.results[0];
       return {
         id: match.id.toString(),
         description: match.overview || "",
-        posterPath: match.poster_path ? `https://image.tmdb.org/t/p/w500${match.poster_path}` : "",
-        backdropPath: match.backdrop_path ? `https://image.tmdb.org/t/p/original${match.backdrop_path}` : "",
-        rating: match.vote_average || 0
+        posterPath: match.poster_path ? `https://image.tmdb.org/t/p/w500${match.poster_path}` : ""
       };
     }
   } catch (e) {
+    console.log(`【TMDB 异常】${title}: ${e.message}`);
     return null;
   }
   return null;
 }
 
-/**
- * 格式化：聚合 B站 评分与 TMDB 高清数据
- */
-async function formatItem(item) {
-  const tmdb = await getTmdbStandard(item.title);
-  if (!tmdb) return null; 
-
-  const sid = (item.season_id || item.ss_id || "").toString();
-  
-  return {
-    id: tmdb.id,
-    type: "bangumi",
-    title: item.title,
-    description: tmdb.description,
-    posterPath: tmdb.posterPath, 
-    backdropPath: tmdb.backdropPath,
-    tmdbInfo: { id: tmdb.id, mediaType: "tv" },
-    hasTmdb: true,
-    // 在副标题展示 B站 评分和更新状态，提升 UI 体验
-    seasonInfo: `⭐${item.rating ? item.rating.replace('分','') : 'N/A'} | ${item.index_show}`,
-    link: `https://www.bilibili.com/bangumi/play/ss${sid}`
-  };
-}
-
-/**
- * 模块入口：支持 100 条数据安全加载
- */
 async function popularRank(params) {
   try {
+    console.log("【开始】正在请求 B 站排行榜...");
     const page = parseInt(params.page || "1");
-    const pageSize = 20;
-    const startIdx = (page - 1) * pageSize;
+    const startIdx = (page - 1) * 20;
 
-    // 获取 B站 排行榜 (3日榜)
-    const url = "https://api.bilibili.com/pgc/season/rank/web/list?season_type=1&day=3";
-    const res = await Widget.http.get(url, { headers: { "Referer": "https://www.bilibili.com/" } });
+    const res = await Widget.http.get("https://api.bilibili.com/pgc/season/rank/web/list?season_type=1&day=3", {
+      headers: { "Referer": "https://www.bilibili.com/" }
+    });
     
+    // 兼容 B 站两种可能的数据结构
     const fullList = res.data.result?.list || res.data.data?.list || [];
+    
+    if (fullList.length === 0) {
+      console.log("【警告】B 站返回列表为空，请检查网络或 Referer 设置");
+      return [];
+    }
+
+    console.log(`【成功】获取到 ${fullList.length} 条番剧，正在处理第 ${page} 页...`);
     const pageList = fullList.slice(startIdx, startIdx + 20);
 
-    // 并行请求当前页面的 20 个 TMDB 数据，兼顾速度与安全
-    const results = await Promise.all(pageList.map(item => formatItem(item)));
-    
-    return results.filter(i => i !== null);
+    const results = await Promise.all(pageList.map(async (item) => {
+      const tmdb = await getTmdbStandard(item.title);
+      if (!tmdb) return null;
+      return {
+        id: tmdb.id,
+        type: "bangumi",
+        title: item.title,
+        description: tmdb.description,
+        posterPath: tmdb.posterPath,
+        tmdbInfo: { id: tmdb.id, mediaType: "tv" },
+        hasTmdb: true,
+        seasonInfo: `⭐${item.rating ? item.rating.replace('分','') : 'N/A'} | ${item.index_show}`,
+        link: `https://www.bilibili.com/bangumi/play/ss${item.season_id || item.ss_id}`
+      };
+    }));
+
+    const finalData = results.filter(i => i !== null);
+    console.log(`【完成】本页成功匹配 ${finalData.length} 条数据`);
+    return finalData;
+
   } catch (e) {
+    console.log("【严重错误】" + e.message);
     return [];
   }
 }
