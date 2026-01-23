@@ -1,20 +1,20 @@
 WidgetMetadata = {
-  id: "bilibili.official.bangumi",
-  title: "B站番剧数据",
-  version: "1.1.0",
+  id: "bilibili.bangumi.official",
+  title: "Bilibili 番剧",
+  version: "2.0.0",
   requiredVersion: "0.0.1",
-  description: "获取 Bilibili 官方番剧播出日历及热门榜单",
+  description: "同步 Bilibili 官方新番时间表及番剧/国创排行榜",
   author: "Forward",
   site: "https://www.bilibili.com/anime/",
   modules: [
     {
-      id: "dailySchedule",
-      title: "每日播出",
-      functionName: "dailySchedule",
+      id: "timeline",
+      title: "新番时间表",
+      functionName: "getTimeline",
       params: [
         {
           name: "day",
-          title: "星期",
+          title: "选择日期",
           type: "enumeration",
           enumOptions: [
             { title: "今天", value: "today" },
@@ -30,36 +30,29 @@ WidgetMetadata = {
       ]
     },
     {
-      id: "trending",
-      title: "近期注目",
-      functionName: "trending",
-      params: [
-        {
-          name: "category",
-          title: "分类",
-          type: "enumeration",
-          enumOptions: [
-            { title: "番剧 (日漫)", value: "1" },
-            { title: "国创 (国产)", value: "4" }
-          ]
-        }
-      ]
+      id: "rank_bangumi",
+      title: "番剧排行榜",
+      functionName: "getRankBangumi",
+      params: []
+    },
+    {
+      id: "rank_guochuang",
+      title: "国创排行榜",
+      functionName: "getRankGuochuang",
+      params: []
     }
   ]
 };
 
 /**
- * 严格适配参考文件的格式化函数
- * 包含嵌套的 tmdbInfo 对象以确保 UI 正常渲染
+ * 严格对齐 bangumi.js 要求的 tmdbInfo 嵌套结构
  */
-function formatBiliItem(item) {
+function formatBiliToBangumi(item) {
   if (!item) return null;
-  // B站的 season_id 是番剧的核心标识
   const sid = (item.season_id || item.ss_id || "").toString();
-  const title = item.title || "";
   const img = (item.cover || item.pic || "").replace("http:", "https:");
   
-  // 构造嵌套对象，UI 框架通常读取此处数据
+  // 必须构造嵌套对象，App 的 UI 渲染依赖此结构
   const tmdbInfo = {
     id: sid,
     description: item.desc || item.evaluate || "",
@@ -75,7 +68,7 @@ function formatBiliItem(item) {
   return {
     id: sid,
     type: "bangumi", // 必须指定为 bangumi 类型
-    title: title,
+    title: item.title || "",
     description: tmdbInfo.description,
     releaseDate: tmdbInfo.releaseDate,
     backdropPath: img,
@@ -84,59 +77,69 @@ function formatBiliItem(item) {
     mediaType: "tv",
     genreTitle: tmdbInfo.genreTitle,
     bangumiUrl: `https://www.bilibili.com/bangumi/play/ss${sid}`,
-    tmdbInfo: tmdbInfo, // 关键：嵌套对象
+    tmdbInfo: tmdbInfo, 
     hasTmdb: true,
     seasonInfo: tmdbInfo.seasonInfo,
-    originalTitle: title,
+    originalTitle: item.title || "",
     popularity: item.pts || 0,
     voteCount: 0
   };
 }
 
-// 模块1：每日播出 (Timeline API)
-async function dailySchedule(params) {
+/**
+ * 1. 新番时间表
+ */
+async function getTimeline(params) {
   try {
-    const url = "https://api.bilibili.com/pgc/web/timeline/v2?season_type=1";
-    const res = await Widget.http.get(url, {
+    const res = await Widget.http.get("https://api.bilibili.com/pgc/web/timeline/v2?season_type=1", {
       headers: { "Referer": "https://www.bilibili.com/anime/" }
     });
-
     const timeline = res.data.result?.latest || [];
     let dayValue = params.day || "today";
 
     if (dayValue === "today") {
       const now = new Date();
-      // JS 0-6 (Sun-Sat) -> B站 1-7 (Mon-Sun)
+      // JS: 0 (Sun) - 6 (Sat) -> B站: 7 (Sun), 1-6 (Mon-Sat)
       const dayMap = [7, 1, 2, 3, 4, 5, 6];
       dayValue = dayMap[now.getDay()].toString();
     }
 
     const dayData = timeline.find(d => d.day_of_week.toString() === dayValue);
-    const list = dayData ? dayData.episodes : [];
-    
-    return list.map(formatBiliItem).filter(i => i !== null);
+    return (dayData ? dayData.episodes : []).map(formatBiliToBangumi);
   } catch (e) {
-    console.error("Schedule Error:", e.message);
+    console.log("Timeline Error: " + e.message);
     return [];
   }
 }
 
-// 模块2：近期注目 (Ranking API)
-async function trending(params) {
+/**
+ * 2. 番剧排行榜 (日本动画)
+ */
+async function getRankBangumi() {
+  return await fetchRanking("1");
+}
+
+/**
+ * 3. 国创排行榜 (国产动画)
+ */
+async function getRankGuochuang() {
+  return await fetchRanking("4");
+}
+
+/**
+ * 通用排行榜抓取
+ */
+async function fetchRanking(seasonType) {
   try {
-    const cat = params.category || "1";
-    // B站官方排行榜 Web 接口
-    const url = `https://api.bilibili.com/pgc/season/rank/web/list?season_type=${cat}&day=3`;
+    const url = `https://api.bilibili.com/pgc/season/rank/web/list?season_type=${seasonType}&day=3`;
     const res = await Widget.http.get(url, {
       headers: { "Referer": "https://www.bilibili.com/anime/" }
     });
-
-    // 适配 B站 接口的两种可能的返回路径
-    const list = res.data.data?.list || res.data.result?.list || [];
-    
-    return list.map(formatBiliItem).filter(i => i !== null);
+    // 排行榜数据路径兼容性处理
+    const list = res.data.result?.list || res.data.data?.list || [];
+    return list.map(formatBiliToBangumi);
   } catch (e) {
-    console.error("Trending Error:", e.message);
+    console.log("Ranking Error: " + e.message);
     return [];
   }
 }
