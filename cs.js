@@ -9,9 +9,9 @@ WidgetMetadata = {
   requiredVersion: "0.0.1",
   detailCacheDuration: 60,
   modules: [
-    // ------------- 1. 播出平台模块 (精简版) -------------
+    // ------------- 1. 播出平台模块 -------------
     {
-      title: "TMDB 播出平台",
+      title: "播出平台",
       description: "按播出平台和内容类型筛选剧集内容",
       requiresWebView: false,
       functionName: "tmdbDiscoverByNetwork",
@@ -108,9 +108,10 @@ const CONSTANTS = {
         "西部": 37, "动作": 28, "冒险": 12, "历史": 36, "奇幻": 14, "恐怖": 27, "音乐": 10402,
         "爱情": 10749, "科幻": 878, "电视电影": 10770, "惊悚": 53, "战争": 10752
     },
-    // 国产剧集筛选标准：如果按评分排序，至少需要5个评分
+    // 定义国内主要平台的ID集合 (Tencent|iQiyi|Youku|Bilibili|MGTV)
+    DOMESTIC_IDS: "2007|1330|1419|1605|1631",
+    // 筛选标准
     DOMESTIC_STD: { minVoteCount: 5 },
-    // 默认筛选标准
     DEFAULT_STD: { minVoteCount: 10 }
 };
 
@@ -262,19 +263,23 @@ async function fetchTmdbBase(endpoint, params) {
 // ================= 1. 按平台发现 (保留核心功能) =================
 async function tmdbDiscoverByNetwork(params = {}) {
     const sortBy = params.sort_by || "first_air_date.desc";
+    
+    // 关键修复：如果 params.with_networks 为空（即选择了“全部”），强制使用国内平台ID列表
+    const networksToSearch = params.with_networks || CONSTANTS.DOMESTIC_IDS;
+    
     const apiParams = {
         language: params.language || 'zh-CN', 
         page: params.page || 1,
-        with_networks: params.with_networks, 
+        with_networks: networksToSearch, 
         sort_by: sortBy,
         with_genres: params.with_genres,
         'first_air_date.lte': params.air_status === 'released' ? getBeijingDate() : undefined,
         'first_air_date.gte': params.air_status === 'upcoming' ? getBeijingDate() : undefined
     };
     
-    // 如果按评分排序，增加最小投票数限制，避免垃圾数据
+    // 评分排序时的过滤
     if (sortBy === 'vote_average.desc') {
-        const isDomestic = ['2007', '1330', '1419', '1605', '1631'].includes(String(params.with_networks));
+        const isDomestic = CONSTANTS.DOMESTIC_IDS.includes(String(networksToSearch));
         apiParams['vote_count.gte'] = isDomestic ? CONSTANTS.DOMESTIC_STD.minVoteCount : CONSTANTS.DEFAULT_STD.minVoteCount;
     }
 
