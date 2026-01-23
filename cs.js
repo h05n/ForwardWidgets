@@ -1,109 +1,134 @@
-/**
- * Bilibili 适配模块 - V1.7.0
- * 严格对齐 demo.js 规范，修复所有 Decoding Error
- */
-
-WidgetMetadata = {
-  id: "bilibili.forward.v170",
-  title: "B站热门",
-  icon: "https://www.bilibili.com/favicon.ico",
-  version: "1.7.0",
-  requiredVersion: "0.0.1",
-  description: "根据 Demo 规范重构，修复数据缺失及解析失败问题",
-  author: "Gemini",
-  site: "https://www.bilibili.com",
-  modules: [
-    {
-      title: "全站热门",
-      description: "哔哩哔哩实时热门榜单",
-      functionName: "getPopular",
-      params: [{ name: "page", title: "页码", type: "page", value: "1" }],
-    },
-    {
-      // id 必须固定为 loadResource 以匹配 stream 类型
-      id: "loadResource",
-      title: "加载资源",
-      functionName: "loadResource",
-      type: "stream",
-      params: [],
-    },
-  ],
+var WidgetMetadata = {
+    id: "bilibili_bangumi_gallery",
+    title: "B站番剧库",
+    description: "仅供浏览番剧排行、时间表、索引及选集信息",
+    author: "Gemini",
+    site: "https://www.bilibili.com/anime/",
+    version: "1.4.0",
+    modules: [
+        {
+            title: "番剧排行榜",
+            functionName: "getBangumiRanking",
+            params: [
+                {
+                    name: "type",
+                    title: "类别",
+                    type: "enumeration",
+                    value: "1",
+                    enumOptions: [
+                        { title: "番剧 (日漫)", value: "1" },
+                        { title: "国创 (国漫)", value: "4" }
+                    ]
+                }
+            ]
+        },
+        {
+            title: "新番时间表",
+            functionName: "getTimeline",
+            params: []
+        },
+        {
+            title: "番剧索引",
+            functionName: "getBangumiIndex",
+            params: [
+                {
+                    name: "page",
+                    title: "页码",
+                    type: "page",
+                    value: "1"
+                }
+            ]
+        }
+    ]
 };
 
 /**
- * 列表获取：全站热门
+ * 格式化番剧项，增加选集展示逻辑
  */
-async function getPopular(params) {
-  try {
-    const page = params.page || 1;
-    const url = `https://api.bilibili.com/x/web-interface/popular?ps=20&pn=${page}`;
-
-    const response = await Widget.http.get(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Referer": "https://www.bilibili.com"
-      }
-    });
-
-    const rawList = response.data.data.list;
-
-    // 必须确保每个对象都有 type 字段，否则报 Decoding Error
-    return rawList.map((item) => {
-      const videoLink = "https://www.bilibili.com/video/" + item.bvid;
-      return {
-        id: videoLink,       // type 为 url 时，id 应设为 URL
-        type: "url",        // [核心修复] 必须字段
+function formatBangumiItem(item) {
+    return {
+        id: item.season_id || item.ss_id,
+        type: "url",
         title: item.title,
-        posterPath: item.pic.startsWith('//') ? 'https:' + item.pic : item.pic,
-        link: videoLink + "?cid=" + item.cid, // 传递给 loadResource 的参数
-        description: item.desc || "",
-      };
-    });
-  } catch (error) {
-    console.error("列表加载失败:", error);
-    return [];
-  }
+        posterPath: (item.cover || item.pic || "").replace("http://", "https://"),
+        // 评分展示
+        rating: item.rating ? item.rating.replace("分", "") : (item.pts ? (item.pts/10000).toFixed(1) + "万热度" : "N/A"),
+        // 更新状态展示 (如: 更新至第12话)
+        durationText: item.index_show || item.new_ep?.index_show || "详情",
+        // 风格标签
+        genreTitle: item.styles ? item.styles.slice(0, 2).join("/") : (item.badge || "番剧"),
+        link: `https://www.bilibili.com/bangumi/play/ss${item.season_id || item.ss_id}`,
+        description: item.desc || item.evaluate || "",
+        playerType: "app" // 仅作为展示，点击通常跳转网页
+    };
 }
 
 /**
- * 资源解析：严格对齐 demo.js 返回格式
+ * 1. 排行榜
  */
-async function loadResource(params) {
-  // 解构 link 参数
-  const { link } = params; 
-  if (!link) return [];
+async function getBangumiRanking(params) {
+    const url = `https://api.bilibili.com/pgc/season/rank/web/list?season_type=${params.type || 1}&day=3`;
+    const resp = await Widget.http.get(url, getHeaders());
+    return (resp.data.data.list || []).map(formatBangumiItem);
+}
 
-  try {
-    const bvid = link.match(/video\/(BV\w+)/)[1];
-    const cidMatch = link.match(/cid=(\d+)/);
-    const cid = cidMatch ? cidMatch[1] : null;
-
-    // 获取 480P MP4 视频流（qn=32 稳定性最高）
-    const playApi = `https://api.bilibili.com/x/player/playurl?bvid=${bvid}&cid=${cid}&qn=32&type=mp4&platform=html5`;
-    
-    const playResp = await Widget.http.get(playApi, {
-      headers: {
-        "Referer": "https://www.bilibili.com",
-        "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15"
-      }
+/**
+ * 2. 时间表
+ */
+async function getTimeline() {
+    const url = `https://api.bilibili.com/pgc/web/timeline/v2?season_type=1&day_before=0&day_after=6`;
+    const resp = await Widget.http.get(url, getHeaders());
+    let list = [];
+    (resp.data.result.latest || []).forEach(day => {
+        list = list.concat(day.episodes || []);
     });
+    return list.map(formatBangumiItem);
+}
 
-    if (playResp.data && playResp.data.data && playResp.data.data.durl) {
-      const videoUrl = playResp.data.data.durl[0].url;
-      
-      // 必须返回数组，每个对象包含 name, description, url
-      return [
-        {
-          name: "B站稳定线路",
-          description: "480P | 原生 MP4 格式",
-          url: videoUrl,
-        }
-      ];
+/**
+ * 3. 索引
+ */
+async function getBangumiIndex(params) {
+    const page = params.page || 1;
+    const url = `https://api.bilibili.com/pgc/season/index/condition?season_type=1&area=-1&style_id=-1&order=3&sort=0&page=${page}&pagesize=20`;
+    const resp = await Widget.http.get(url, getHeaders());
+    return (resp.data.data.list || []).map(formatBangumiItem);
+}
+
+/**
+ * 核心：点击加载详情（展示选集列表，但不提供播放地址）
+ */
+async function loadDetail(link) {
+    try {
+        // 从链接中提取 season_id
+        const seasonId = link.match(/ss(\d+)/)[1];
+        const url = `https://api.bilibili.com/pgc/view/web/season?season_id=${seasonId}`;
+        const resp = await Widget.http.get(url, getHeaders());
+        const data = resp.data.result;
+
+        return {
+            title: data.title,
+            posterPath: data.cover,
+            description: data.evaluate,
+            // 将每一集作为子项展示
+            childItems: (data.episodes || []).map(ep => ({
+                id: ep.id,
+                title: `${ep.share_copy}`, // 显示如：第1话 启程
+                durationText: ep.long_title,
+                link: ep.share_url,
+                type: "url"
+            }))
+        };
+    } catch (e) {
+        return { title: "加载失败" };
     }
-    
-    return [];
-  } catch (error) {
-    console.error("资源解析异常:", error);
-    return [];
-  }
+}
+
+function getHeaders() {
+    return {
+        headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Referer": "https://www.bilibili.com/"
+        }
+    };
 }
