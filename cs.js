@@ -30,7 +30,7 @@ WidgetMetadata = {
 };
 
 // --- 请务必填写你的真实 TMDB API KEY ---
-const TMDB_API_KEY = "请自行填写"; 
+const TMDB_API_KEY = "cf2190683e55fad0f978c719d0bc1c68"; 
 
 /**
  * 标题清洗：提升匹配精度
