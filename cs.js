@@ -1,6 +1,6 @@
 // ===========================================
-// Forward Widget: 动画榜单 (Domestic Anime v8.0)
-// Version: 8.0.0 (Strict Manual Mode)
+// Forward Widget: 动画榜单 (Domestic Anime v10.0)
+// Version: 10.0.0 (Clean Text & Renamed)
 // Author: Optimized by Gemini
 // ===========================================
 
@@ -10,12 +10,12 @@ const CONFIG = {
 };
 
 WidgetMetadata = {
-  id: "anime_rank_v8",
+  id: "anime_rank_v10",
   title: "动画榜单",
-  description: "国内平台动画专用榜单 (v8.0 手动版)",
+  description: "国内平台动画专用榜单 (v10.0 纯净版)",
   author: "ForwardUser",
   site: "https://github.com/h05n/ForwardWidgets",
-  version: "8.0.0",
+  version: "10.0.0",
   requiredVersion: "0.0.1",
   detailCacheDuration: 0, 
   modules: [
@@ -66,10 +66,10 @@ WidgetMetadata = {
       ]
     },
     // ------------------------------------------------
-    // 模块 2: 黑名单管家 (纯手动融合版)
+    // 模块 2: 屏蔽管理 (已更名，无表情)
     // ------------------------------------------------
     {
-      title: "黑名单管家",
+      title: "屏蔽管理",
       description: "手动输入精确名称进行管理",
       requiresWebView: false,
       functionName: "moduleShield",
@@ -78,16 +78,16 @@ WidgetMetadata = {
         {
           name: "mode", title: "执行操作", type: "enumeration", value: "block",
           enumOptions: [
-            { title: "🚫 屏蔽 (输入名称)", value: "block" },
-            { title: "✅ 解除 (输入名称)", value: "unblock" },
-            { title: "👀 查看黑名单", value: "list" },
-            { title: "🗑️ 清空所有屏蔽", value: "clear" }
+            { title: "屏蔽 (输入名称)", value: "block" },
+            { title: "解除 (输入名称)", value: "unblock" },
+            { title: "查看列表", value: "list" },
+            { title: "清空所有", value: "clear" }
           ]
         },
+        // 输入框常驻，无表情提示
         { 
             name: "input_name", title: "准确剧名", type: "input", value: "", 
-            placeholder: "必须输入准确的全名",
-            belongTo: { paramName: "mode", value: ["block", "unblock"] }
+            placeholder: "屏蔽或解除时请填写准确名称"
         }
       ]
     }
@@ -144,7 +144,7 @@ async function moduleDiscover(args) {
     } catch { return [Render.info("加载失败", "网络请求错误")]; }
 }
 
-// 模块 2: 管家 (严格手动模式)
+// 模块 2: 屏蔽管理 (纯净版)
 async function moduleShield(args) {
     const { mode, input_name } = args;
     const list = DB.get();
@@ -158,7 +158,7 @@ async function moduleShield(args) {
     // --- 清空 ---
     if (mode === 'clear') {
         DB.set([]);
-        return [Render.info("操作完成", "黑名单已清空")];
+        return [Render.info("操作完成", "列表已清空")];
     }
 
     // --- 屏蔽 (搜 -> 封) ---
@@ -166,9 +166,7 @@ async function moduleShield(args) {
         if (!input_name) return [Render.info("提示", "请输入要屏蔽的动画全名")];
         
         try {
-            // 还是需要搜一下TMDB来获取ID和海报，确保屏蔽的是存在的动画
             const res = await Widget.tmdb.get('/search/tv', { params: { query: input_name, language: 'zh-CN' } });
-            // 严格取第一个匹配项
             const target = (res.results || []).find(i => i.name && i.poster_path);
 
             if (!target) return [Render.info("未找到", "搜不到该动画，请核对名称")];
@@ -188,12 +186,11 @@ async function moduleShield(args) {
         if (!input_name) return [Render.info("提示", "请输入要解除的动画全名")];
 
         const initialCount = list.length;
-        // 核心修改：使用 !== (全等) 而不是 includes (包含)
-        // 只有名字一模一样才会被过滤掉(解除)
+        // 严格精确匹配
         const newList = list.filter(item => item.name !== input_name.trim());
 
         if (newList.length === initialCount) {
-            return [Render.info("匹配失败", "未找到完全同名的屏蔽项，请检查输入")];
+            return [Render.info("匹配失败", "未找到完全同名的屏蔽项")];
         }
 
         DB.set(newList);
