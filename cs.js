@@ -1,86 +1,72 @@
-var WidgetMetadata = {
-    "id": "weather_cinema",
+const WidgetMetadata = {
+    "id": "weather_cinema_v3",
     "title": "窗外的电影",
-    "description": "感知天气与昼夜，为你匹配观影氛围",
+    "description": "自动匹配天气氛围",
     "author": "AI",
-    "version": "1.2.2",
-    "site": "https://github.com/InchStudio/ForwardWidgets",
+    "version": "1.0.0",
     "modules": [
         {
             "functionName": "getWeatherMovies",
             "params": [
                 {
                     "name": "tmdbKey",
-                    "label": "TMDB API Key",
-                    "type": "input",
-                    "default": ""
+                    "label": "TMDB Key",
+                    "type": "input"
                 }
             ]
         }
     ]
 };
 
-async function getWeatherMovies(params = {}) {
-    var tmdbKey = params.tmdbKey;
-    if (!tmdbKey) return [];
+async function getWeatherMovies(params) {
+    const tmdbKey = params.tmdbKey;
+    if (!tmdbKey || tmdbKey.length < 10) {
+        return [];
+    }
 
-    var cityName = "北京";
-    var weatherText = "晴";
-    var temp = "20";
+    let cityName = "shanghai";
+    let weatherText = "clear";
 
     try {
-        // 1. 国内精准定位
-        var ipResp = await Widget.http.get('https://whois.pconline.com.cn/ipJson.jsp?json=true');
-        var ipData = JSON.parse(ipResp);
+        // 1. 使用支持 HTTPS 的 IP 定位（国内可用）
+        const ipInfo = await Widget.http.get("https://ipapi.co/json/");
+        const ipData = JSON.parse(ipInfo);
         if (ipData && ipData.city) {
-            cityName = ipData.city.replace("市", "");
+            cityName = ipData.city;
         }
 
-        // 2. 获取天气
-        var weatherUrl = "https://wttr.in/" + encodeURIComponent(cityName) + "?format=j1&lang=zh-cn";
-        var weatherResp = await Widget.http.get(weatherUrl);
-        var weatherData = JSON.parse(weatherResp);
-        
-        weatherText = weatherData.current_condition[0].lang_zh 
-                      ? weatherData.current_condition[0].lang_zh[0].value 
-                      : weatherData.current_condition[0].weatherDesc[0].value;
-        temp = weatherData.current_condition[0].temp_C;
+        // 2. 获取天气信息
+        const weatherInfo = await Widget.http.get(`https://wttr.in/${cityName}?format=j1&lang=zh-cn`);
+        const weatherData = JSON.parse(weatherInfo);
+        weatherText = weatherData.current_condition[0].weatherDesc[0].value.toLowerCase();
     } catch (e) {
-        // 定位失败保持默认值
+        // 忽略定位错误，使用默认值
     }
 
-    // 3. 氛围匹配逻辑
-    var hour = new Date().getHours();
-    var genre = "18"; 
-    var moodDesc = "精选时刻";
-
-    if (hour >= 22 || hour <= 4) {
-        genre = "27,53";
-        moodDesc = "深夜惊悚";
-    } else if (weatherText.indexOf("雨") !== -1 || weatherText.indexOf("阴") !== -1) {
-        genre = "18,80";
-        moodDesc = "雨天氛围";
-    } else if (weatherText.indexOf("晴") !== -1) {
-        genre = "35,12";
-        moodDesc = "明媚心情";
+    // 3. 确定搜索标签 (TMDB Genre ID)
+    // 28: 动作, 35: 喜剧, 18: 剧情, 27: 恐怖
+    let genre = "18"; 
+    if (weatherText.includes("rain") || weatherText.includes("cloud")) {
+        genre = "18,80"; // 剧情或犯罪
+    } else if (weatherText.includes("sun") || weatherText.includes("clear")) {
+        genre = "35,12"; // 喜剧或冒险
     }
 
-    // 4. 请求 TMDB 资源
+    // 4. 拉取数据
     try {
-        var randomPage = Math.floor(Math.random() * 10) + 1;
-        var tmdbUrl = "https://api.themoviedb.org/3/discover/movie?api_key=" + tmdbKey + "&with_genres=" + genre + "&language=zh-CN&page=" + randomPage;
-        var movieResp = await Widget.http.get(tmdbUrl);
-        var movieData = JSON.parse(movieResp);
+        const page = Math.floor(Math.random() * 5) + 1;
+        const apiAddr = `https://api.themoviedb.org/3/discover/movie?api_key=${tmdbKey}&with_genres=${genre}&language=zh-CN&page=${page}`;
+        const res = await Widget.http.get(apiAddr);
+        const data = JSON.parse(res);
 
-        return movieData.results.map(function(item) {
+        return data.results.map(item => {
             return {
-                id: item.id.toString(),
-                title: item.title,
-                description: "【" + moodDesc + "】 " + cityName + " " + weatherText + " " + temp + "°C",
-                posterPath: "https://image.tmdb.org/t/p/w500" + item.poster_path,
-                backdropPath: "https://image.tmdb.org/t/p/original" + item.backdrop_path,
-                mediaType: "movie",
-                type: "tmdb"
+                "id": item.id.toString(),
+                "type": "tmdb",
+                "title": item.title,
+                "posterPath": "https://image.tmdb.org/t/p/w500" + item.poster_path,
+                "backdropPath": "https://image.tmdb.org/t/p/original" + item.backdrop_path,
+                "mediaType": "movie"
             };
         });
     } catch (err) {
