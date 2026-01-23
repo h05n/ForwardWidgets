@@ -1,39 +1,35 @@
 // ===========================================
-// Forward Widget: 全网日漫榜 (All Japanese Anime)
-// Version: 1.0.0
+// Forward Widget: 日漫榜单 (Simple & Clean)
+// Version: 3.2.0
 // ===========================================
 
 const CONFIG = {
-    // 国内五大平台 ID (B站, 腾讯, 爱奇艺, 优库, 芒果)
-    CN_NETWORKS: "1605|2007|1330|1419|1631",
-    BASE_GENRE: "16", // 动画分类
-    
-    // 屏蔽儿童分类 (如佩奇等)
+    ALL_NETWORKS: "1605|2007|1330|1419|1631",
+    BASE_GENRE: "16", 
     BLOCK_GENRE: "10762" 
 };
 
 WidgetMetadata = {
-  // 修改ID确保刷新缓存
-  id: "bangdan_jp_all", 
-  title: "全网日漫榜",
+  id: "bangdan_japan_simple", // 改ID刷新配置
+  title: "日漫榜单",
   description: "聚合全网平台的日本动画榜单",
   author: "ForwardUser",
   site: "https://github.com/h05n/ForwardWidgets",
-  version: "1.0.0", // 锁死版本号
+  version: "3.2.0",
   requiredVersion: "0.0.1",
   detailCacheDuration: 60, 
   modules: [
     {
-      title: "全网日漫",
-      description: "浏览所有平台的日本番剧",
+      title: "日漫榜单",
+      description: "浏览国内引进的日本动画",
       requiresWebView: false,
       functionName: "moduleDiscover",
-      cacheDuration: 3600, // 缓存60分钟
+      cacheDuration: 3600, 
       params: [
         {
-          name: "platform", title: "播出平台", type: "enumeration", value: "", // 默认空，代表全部
+          name: "platform", title: "播出平台", type: "enumeration", value: "",
           enumOptions: [
-            { title: "全部平台", value: "" }, // 聚合显示
+            { title: "全部平台", value: "" }, 
             { title: "哔哩哔哩", value: "1605" },
             { title: "腾讯视频", value: "2007" },
             { title: "爱奇艺", value: "1330" },
@@ -41,17 +37,19 @@ WidgetMetadata = {
             { title: "芒果TV", value: "1631" }
           ]
         },
+        // 优化：四大核心分类，去重去冗余
         {
           name: "genre", title: "动画题材", type: "enumeration", value: "",
           enumOptions: [
             { title: "全部题材", value: "" },
-            { title: "热血战斗", value: "10759" },
-            { title: "异界奇幻", value: "10765" },
-            { title: "搞笑恋爱", value: "35" },
-            { title: "日常治愈", value: "10751" },
-            { title: "悬疑智斗", value: "9648" },
-            { title: "深度剧情", value: "18" },
-            { title: "战争机战", value: "10768" }
+            // 1. 动作冒险 (Action & Adventure) - 涵盖战斗/战争/机战
+            { title: "热血 / 冒险", value: "10759" },
+            // 2. 科幻奇幻 (Sci-Fi & Fantasy) - 涵盖异世界/魔法/超能力
+            { title: "奇幻 / 异界", value: "10765" },
+            // 3. 喜剧 (Comedy) - 涵盖恋爱/搞笑/日常/治愈 (大部分日常番都有喜剧标签)
+            { title: "恋爱 / 日常", value: "35" },
+            // 4. 剧情 (Drama) - 涵盖悬疑/推理/深度/致郁
+            { title: "烧脑 / 剧情", value: "18" }
           ]
         },
         { 
@@ -72,7 +70,6 @@ WidgetMetadata = {
 // ================= 核心工具 =================
 
 const Render = {
-    // 标准卡片样式
     card: (item) => ({
         id: String(item.id), 
         type: "tmdb", 
@@ -104,33 +101,18 @@ const getBeijingToday = () => {
 async function moduleDiscover(args) {
     const { platform, genre, page_num } = args;
     const p = parseInt(page_num) || 1;
-
-    // 如果用户选了"全部平台"(空值)，则使用 CONFIG.CN_NETWORKS (五大平台聚合)
-    // 否则使用用户指定的具体平台 ID
-    const targetPlatform = platform || CONFIG.CN_NETWORKS;
+    const targetPlatform = platform || CONFIG.ALL_NETWORKS;
 
     try {
-        // 使用 TMDB 稳定接口
         const res = await Widget.tmdb.get('/discover/tv', { 
             params: {
                 language: 'zh-CN', 
                 page: p,
-                sort_by: 'first_air_date.desc', // 默认按时间倒序看最新
-                
-                // 1. 平台过滤：聚合或单选
+                sort_by: 'first_air_date.desc',
                 with_networks: targetPlatform,
-                
-                // 2. 题材过滤
                 with_genres: genre ? `${CONFIG.BASE_GENRE},${genre}` : CONFIG.BASE_GENRE,
-                
-                // 3. 核心：强制锁死日语原声 (Japan Only)
-                // 这一行代码彻底根除了国产 3D 动画
-                with_original_language: 'ja',
-                
-                // 4. 排除儿童
+                with_original_language: 'ja', // 保持日漫锁
                 without_genres: CONFIG.BLOCK_GENRE, 
-                
-                // 5. 只看已开播
                 'first_air_date.lte': getBeijingToday()
             }
         });
@@ -142,6 +124,6 @@ async function moduleDiscover(args) {
             .map(item => Render.card(item));
 
     } catch (e) {
-        return [Render.info("加载失败", "网络请求错误，请检查网络")];
+        return [Render.info("加载失败", "网络请求错误")];
     }
 }
