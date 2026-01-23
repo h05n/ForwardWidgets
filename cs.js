@@ -54,10 +54,10 @@ WidgetMetadata = {
         { name: "language", title: "语言", type: "language", value: "zh-CN" }
       ]
     },
-    // ------------- 2. 搜索屏蔽模块 (逻辑重构版) -------------
+    // ------------- 2. 搜索屏蔽模块 (自动屏蔽首位) -------------
     {
       title: "搜索屏蔽",
-      description: "直接屏蔽名称匹配的第一个结果，或屏蔽指定类型",
+      description: "自动屏蔽搜索结果中的第一个匹配项，或屏蔽指定类型",
       requiresWebView: false,
       functionName: "searchAndBlock",
       cacheDuration: 0,
@@ -69,9 +69,9 @@ WidgetMetadata = {
             { title: "按内容类型屏蔽", value: "by_genre" }
           ]
         },
-        // 按名称屏蔽：直接输入，无需 belongTo，默认显示
+        // 修正：无 belongTo，确保输入框始终显示
         { 
-            name: "query", title: "影片名称", type: "input", value: "", placeholder: "输入名称，将自动屏蔽第一个搜索结果"
+            name: "query", title: "影片名称", type: "input", value: "", placeholder: "输入名称，将自动屏蔽第一个结果"
         },
         // 按类型屏蔽
         { 
@@ -106,6 +106,7 @@ WidgetMetadata = {
         },
         {
           name: "action", title: "操作", type: "enumeration", value: "view",
+          // 修正：纯净文案
           enumOptions: [
               { title: "查看列表", value: "view" }, 
               { title: "解除屏蔽", value: "unblock" }, 
@@ -309,7 +310,7 @@ async function tmdbDiscoverByNetwork(params = {}) {
 async function searchAndBlock(params) {
     const { block_type, query, genre_id, language = "zh-CN" } = params;
 
-    // 1. 类型屏蔽 (优先处理)
+    // 1. 类型屏蔽
     if (block_type === "by_genre") {
         if (!genre_id) return [createMsg("info", "请选择要屏蔽的类型")];
         const genreName = CONSTANTS.TMDB_GENRE_MAP[genre_id] || "未知类型";
@@ -317,8 +318,7 @@ async function searchAndBlock(params) {
         return [createMsg("info", success ? "类型屏蔽成功" : "已存在", `类型: ${genreName}`)];
     }
 
-    // 2. 名称屏蔽 (默认模式)
-    // 逻辑修正：只要有query就执行搜索+屏蔽第一项
+    // 2. 名称屏蔽 (自动屏蔽第一个)
     if (!query) return [createMsg("info", "请输入影片名称")];
     
     try {
@@ -344,11 +344,11 @@ async function searchAndBlock(params) {
         const year = (bestMatch.release_date || bestMatch.first_air_date || '').slice(0, 4);
         
         return [
-            createMsg("info", success ? "屏蔽成功" : "已在黑名单", title + (year ? ` (${year})` : "")),
+            createMsg("info", success ? "已自动屏蔽" : "已在黑名单", title + (year ? ` (${year})` : "")),
             {
                 id: `blocked_${bestMatch.id}`, type: "info",
                 title: `${title}`,
-                description: `ID: ${bestMatch.id} | 已自动加入屏蔽列表`,
+                description: `ID: ${bestMatch.id} | 已屏蔽`,
                 posterPath: `https://image.tmdb.org/t/p/w500${bestMatch.poster_path}`,
                 mediaType: bestMatch.media_type
             }
