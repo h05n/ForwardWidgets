@@ -54,7 +54,7 @@ WidgetMetadata = {
         { name: "language", title: "语言", type: "language", value: "zh-CN" }
       ]
     },
-    // ------------- 2. 搜索屏蔽模块 (UI修复版) -------------
+    // ------------- 2. 搜索屏蔽模块 -------------
     {
       title: "搜索屏蔽",
       description: "搜索获取ID，或通过ID/类型进行屏蔽",
@@ -65,12 +65,11 @@ WidgetMetadata = {
         {
           name: "mode", title: "功能模式", type: "enumeration", value: "search",
           enumOptions: [
-            { title: "🔍 搜索影片 (获取ID)", value: "search" },
-            { title: "🚫 屏蔽指定ID", value: "block_id" },
-            { title: "🚫 屏蔽指定类型", value: "block_genre" }
+            { title: "搜索影片", value: "search" },
+            { title: "屏蔽指定ID", value: "block_id" },
+            { title: "屏蔽指定类型", value: "block_genre" }
           ]
         },
-        // 修复关键：移除 belongTo，强制默认显示搜索框
         { 
             name: "query", title: "影片名称", type: "input", value: "", placeholder: "例如：鬼灭之刃" 
         },
@@ -115,9 +114,10 @@ WidgetMetadata = {
         },
         {
           name: "action", title: "操作", type: "enumeration", value: "view",
+          // 已修改：去除了"(输入ID)"字样
           enumOptions: [
               { title: "查看列表", value: "view" }, 
-              { title: "解除屏蔽 (输入ID)", value: "unblock" }, 
+              { title: "解除屏蔽", value: "unblock" }, 
               { title: "清空所有", value: "clear" }, 
               { title: "导出配置", value: "export" }, 
               { title: "导入配置", value: "import" }
@@ -322,21 +322,21 @@ async function searchAndBlock(params) {
         if (!genre_id) return [createMsg("info", "请选择要屏蔽的类型")];
         const genreName = CONSTANTS.TMDB_GENRE_MAP[genre_id] || "未知类型";
         const success = addBlockedGenre(genreName, genre_id);
-        return [createMsg("info", success ? "✅ 类型屏蔽成功" : "ℹ️ 已存在", `类型: ${genreName}`)];
+        return [createMsg("info", success ? "类型屏蔽成功" : "已存在", `类型: ${genreName}`)];
     }
 
     if (mode === "block_id") {
         const id = (tmdb_id || "").trim();
-        if (!/^\d+$/.test(id)) return [createMsg("error", "❌ 无效ID", "请输入纯数字ID")];
+        if (!/^\d+$/.test(id)) return [createMsg("error", "无效ID", "请输入纯数字ID")];
         try {
             const mType = media_type || "tv";
             const item = await Widget.tmdb.get(`/${mType}/${id}`, { params: { language: "zh-CN" } }).then(r => r.data || r);
             const success = addBlockedItem({ ...item, media_type: mType });
-            return [createMsg("info", success ? "✅ 屏蔽成功" : "ℹ️ 已存在", item.title || item.name)];
-        } catch (e) { return [createMsg("error", "❌ 失败", "未找到对应ID的内容，请检查ID和类型")]; }
+            return [createMsg("info", success ? "屏蔽成功" : "已存在", item.title || item.name)];
+        } catch (e) { return [createMsg("error", "失败", "未找到对应ID的内容，请检查ID和类型")]; }
     }
 
-    // 默认或搜索模式：即使query输入框在其他模式也显示，但只在这里生效
+    // 搜索模式
     if (!query) return [createMsg("info", "请输入关键词")];
     try {
         const res = await Widget.tmdb.get("/search/multi", { params: { query, language, page: 1 } });
@@ -344,7 +344,7 @@ async function searchAndBlock(params) {
             .filter(i => ["movie", "tv"].includes(i.media_type) && i.poster_path)
             .slice(0, 20);
 
-        if (!results.length) return [createMsg("info", "🔍 未找到结果")];
+        if (!results.length) return [createMsg("info", "未找到结果")];
 
         const blockedSet = getBlockedIdSet();
         return [
@@ -353,14 +353,14 @@ async function searchAndBlock(params) {
                 const isB = blockedSet.has(String(i.id)) || blockedSet.has(`${i.id}_${i.media_type}`);
                 return {
                     id: `search_${i.id}`, type: "info",
-                    title: `${isB ? "🚫" : ""} ${i.title || i.name} (${(i.release_date || i.first_air_date || '').slice(0, 4)})`,
-                    description: `ID: ${i.id} | ${i.media_type === 'movie' ? '电影' : '剧集'} | ${isB ? "已在黑名单" : "正常显示"}`,
+                    title: `${isB ? "(已屏蔽) " : ""} ${i.title || i.name} (${(i.release_date || i.first_air_date || '').slice(0, 4)})`,
+                    description: `ID: ${i.id} | ${i.media_type === 'movie' ? '电影' : '剧集'}`,
                     posterPath: `https://image.tmdb.org/t/p/w500${i.poster_path}`,
                     mediaType: i.media_type
                 };
             })
         ];
-    } catch (e) { return [createMsg("error", "❌ 搜索失败", e.message)]; }
+    } catch (e) { return [createMsg("error", "搜索失败", e.message)]; }
 }
 
 async function manageBlockedItems(params) {
@@ -369,34 +369,34 @@ async function manageBlockedItems(params) {
     if (action === "clear") {
         if (manage_type === "genres") {
             setStorage(CONSTANTS.GENRE_KEY, []) && resetCache();
-            return [createMsg("info", "✅ 类型屏蔽已清空")];
+            return [createMsg("info", "类型屏蔽已清空")];
         }
         Widget.storage.clear(); resetCache();
-        return [createMsg("info", "✅ 所有屏蔽已清空")];
+        return [createMsg("info", "所有屏蔽已清空")];
     }
 
     if (action === "unblock") {
         const id = (unblock_id || "").trim();
-        if (!id) return [createMsg("info", "⚠️ 请输入要解除的ID")];
+        if (!id) return [createMsg("info", "请输入要解除的ID")];
         if (manage_type === "genres") {
-            return [createMsg("info", removeBlockedGenre(parseInt(id)) ? "✅ 类型解封成功" : "❌ 未找到该类型ID")];
+            return [createMsg("info", removeBlockedGenre(parseInt(id)) ? "类型解封成功" : "未找到该类型ID")];
         } else {
             const r1 = removeBlockedItem(id, "movie");
             const r2 = removeBlockedItem(id, "tv");
-            return [createMsg("info", (r1 || r2) ? "✅ 内容解封成功" : "❌ 未找到该ID")];
+            return [createMsg("info", (r1 || r2) ? "内容解封成功" : "未找到该ID")];
         }
     }
 
     if (action === "export") {
         const ids = getBlockedItems().map(i => i.id).join(',');
-        return [createMsg("info", "📤 导出配置", ids || "无数据")];
+        return [createMsg("info", "导出配置", ids || "无数据")];
     }
 
     if (action === "import") {
         const ids = (params.import_data || "").replace(/['"]/g, '').split(',').map(s => s.trim()).filter(s => /^\d+$/.test(s));
         let count = 0;
         ids.forEach(id => addBlockedItem({ id, media_type: "movie", title: `Imported ${id}` }) && count++);
-        return [createMsg("info", "📥 导入完成", `成功导入 ${count} 条`)];
+        return [createMsg("info", "导入完成", `成功导入 ${count} 条`)];
     }
 
     const list = manage_type === "genres" ? getBlockedGenres() : getBlockedItems();
@@ -406,7 +406,7 @@ async function manageBlockedItems(params) {
         if (manage_type === "genres") {
              return {
                 id: `b_g_${i.id}`, type: "info",
-                title: `🚫 ${i.name}`,
+                title: `${i.name}`,
                 description: `ID: ${i.id} | Time: ${new Date(i.blocked_date).toLocaleDateString()}`,
                 posterPath: "", mediaType: "info"
             };
