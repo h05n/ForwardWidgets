@@ -1,8 +1,3 @@
-// ===========================================
-// Forward Widget: 日漫榜单 (Simple & Clean)
-// Version: 3.2.0
-// ===========================================
-
 const CONFIG = {
     ALL_NETWORKS: "1605|2007|1330|1419|1631",
     BASE_GENRE: "16", 
@@ -13,9 +8,9 @@ WidgetMetadata = {
   id: "bangdan_japan_simple", // 改ID刷新配置
   title: "日漫榜单",
   description: "聚合全网平台的日本动画榜单",
-  author: "ForwardUser",
+  author: "，",
   site: "https://github.com/h05n/ForwardWidgets",
-  version: "3.2.0",
+  version: "1.0.0",
   requiredVersion: "0.0.1",
   detailCacheDuration: 60, 
   modules: [
