@@ -18,7 +18,7 @@ WidgetMetadata = {
                 },
                 {
                     "name": "tmdbKey",
-                    "label": "TMDB API Key",
+                    "label": "cf2190683e55fad0f978c719d0bc1c68",
                     "type": "input",
                     "default": ""
                 }
