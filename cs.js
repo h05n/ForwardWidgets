@@ -54,10 +54,10 @@ WidgetMetadata = {
         { name: "language", title: "语言", type: "language", value: "zh-CN" }
       ]
     },
-    // ------------- 2. 搜索屏蔽模块 (稳健版) -------------
+    // ------------- 2. 搜索屏蔽模块 (UI修复版) -------------
     {
       title: "搜索屏蔽",
-      description: "搜索影片获取ID，或直接通过ID/类型进行屏蔽",
+      description: "搜索获取ID，或通过ID/类型进行屏蔽",
       requiresWebView: false,
       functionName: "searchAndBlock",
       cacheDuration: 0,
@@ -70,12 +70,10 @@ WidgetMetadata = {
             { title: "🚫 屏蔽指定类型", value: "block_genre" }
           ]
         },
-        // 搜索模式参数
+        // 修复关键：移除 belongTo，强制默认显示搜索框
         { 
-            name: "query", title: "影片名称", type: "input", value: "", placeholder: "例如：鬼灭之刃", 
-            belongTo: { paramName: "mode", value: ["search"] } 
+            name: "query", title: "影片名称", type: "input", value: "", placeholder: "例如：鬼灭之刃" 
         },
-        // ID屏蔽模式参数
         { 
             name: "tmdb_id", title: "输入TMDB ID", type: "input", value: "", placeholder: "从搜索结果中复制ID", 
             belongTo: { paramName: "mode", value: ["block_id"] } 
@@ -85,7 +83,6 @@ WidgetMetadata = {
             enumOptions: [{ title: "剧集", value: "tv" }, { title: "电影", value: "movie" }],
             belongTo: { paramName: "mode", value: ["block_id"] }
         },
-        // 类型屏蔽模式参数
         { 
           name: "genre_id", title: "选择类型", type: "enumeration", value: "", 
           belongTo: { paramName: "mode", value: ["block_genre"] },
@@ -104,10 +101,10 @@ WidgetMetadata = {
         }
       ]
     },
-    // ------------- 3. 屏蔽管理模块 (稳健版) -------------
+    // ------------- 3. 屏蔽管理模块 -------------
     {
       title: "屏蔽管理",
-      description: "查看已屏蔽内容，或通过ID解除屏蔽",
+      description: "查看列表或通过ID解除屏蔽",
       requiresWebView: false,
       functionName: "manageBlockedItems",
       cacheDuration: 0,
@@ -321,7 +318,6 @@ async function tmdbDiscoverByNetwork(params = {}) {
 async function searchAndBlock(params) {
     const { mode, query, tmdb_id, media_type, genre_id, language = "zh-CN" } = params;
 
-    // 1. 类型屏蔽 (使用下拉菜单)
     if (mode === "block_genre") {
         if (!genre_id) return [createMsg("info", "请选择要屏蔽的类型")];
         const genreName = CONSTANTS.TMDB_GENRE_MAP[genre_id] || "未知类型";
@@ -329,11 +325,9 @@ async function searchAndBlock(params) {
         return [createMsg("info", success ? "✅ 类型屏蔽成功" : "ℹ️ 已存在", `类型: ${genreName}`)];
     }
 
-    // 2. ID屏蔽 (手动输入)
     if (mode === "block_id") {
         const id = (tmdb_id || "").trim();
         if (!/^\d+$/.test(id)) return [createMsg("error", "❌ 无效ID", "请输入纯数字ID")];
-        
         try {
             const mType = media_type || "tv";
             const item = await Widget.tmdb.get(`/${mType}/${id}`, { params: { language: "zh-CN" } }).then(r => r.data || r);
@@ -342,7 +336,7 @@ async function searchAndBlock(params) {
         } catch (e) { return [createMsg("error", "❌ 失败", "未找到对应ID的内容，请检查ID和类型")]; }
     }
 
-    // 3. 搜索模式 (仅展示)
+    // 默认或搜索模式：即使query输入框在其他模式也显示，但只在这里生效
     if (!query) return [createMsg("info", "请输入关键词")];
     try {
         const res = await Widget.tmdb.get("/search/multi", { params: { query, language, page: 1 } });
@@ -354,13 +348,13 @@ async function searchAndBlock(params) {
 
         const blockedSet = getBlockedIdSet();
         return [
-            createMsg("info", "搜索结果 (ID可用于屏蔽)", `共找到 ${results.length} 条`),
+            createMsg("info", "搜索结果 (请复制ID去屏蔽)", `共找到 ${results.length} 条`),
             ...results.map(i => {
                 const isB = blockedSet.has(String(i.id)) || blockedSet.has(`${i.id}_${i.media_type}`);
                 return {
                     id: `search_${i.id}`, type: "info",
                     title: `${isB ? "🚫" : ""} ${i.title || i.name} (${(i.release_date || i.first_air_date || '').slice(0, 4)})`,
-                    description: `ID: ${i.id} | ${i.media_type === 'movie' ? '电影' : '剧集'} | ${isB ? "已在黑名单" : "未屏蔽"}`,
+                    description: `ID: ${i.id} | ${i.media_type === 'movie' ? '电影' : '剧集'} | ${isB ? "已在黑名单" : "正常显示"}`,
                     posterPath: `https://image.tmdb.org/t/p/w500${i.poster_path}`,
                     mediaType: i.media_type
                 };
@@ -372,7 +366,6 @@ async function searchAndBlock(params) {
 async function manageBlockedItems(params) {
     const { manage_type, action, unblock_id } = params;
 
-    // 清空
     if (action === "clear") {
         if (manage_type === "genres") {
             setStorage(CONSTANTS.GENRE_KEY, []) && resetCache();
@@ -382,22 +375,18 @@ async function manageBlockedItems(params) {
         return [createMsg("info", "✅ 所有屏蔽已清空")];
     }
 
-    // 解除屏蔽 (ID模式)
     if (action === "unblock") {
         const id = (unblock_id || "").trim();
         if (!id) return [createMsg("info", "⚠️ 请输入要解除的ID")];
-        
         if (manage_type === "genres") {
             return [createMsg("info", removeBlockedGenre(parseInt(id)) ? "✅ 类型解封成功" : "❌ 未找到该类型ID")];
         } else {
-            // 尝试同时移除 movie 和 tv，因为不知道用户输入的是哪种
             const r1 = removeBlockedItem(id, "movie");
             const r2 = removeBlockedItem(id, "tv");
             return [createMsg("info", (r1 || r2) ? "✅ 内容解封成功" : "❌ 未找到该ID")];
         }
     }
 
-    // 导出/导入
     if (action === "export") {
         const ids = getBlockedItems().map(i => i.id).join(',');
         return [createMsg("info", "📤 导出配置", ids || "无数据")];
@@ -410,11 +399,9 @@ async function manageBlockedItems(params) {
         return [createMsg("info", "📥 导入完成", `成功导入 ${count} 条`)];
     }
 
-    // 查看列表
     const list = manage_type === "genres" ? getBlockedGenres() : getBlockedItems();
     if (!list.length) return [createMsg("info", "列表为空")];
 
-    // 按时间倒序
     return list.sort((a, b) => new Date(b.blocked_date) - new Date(a.blocked_date)).map(i => {
         if (manage_type === "genres") {
              return {
@@ -443,7 +430,6 @@ function createMsg(type, title, desc = "") {
     return { id: Math.random().toString(36), type, title, description: desc, posterPath: "", mediaType: "info" };
 }
 
-// 保留 loadDetail 但不做复杂逻辑，以防万一
 async function loadDetail(link) {
     return { title: "提示", description: "请使用配置菜单进行操作" };
 }
