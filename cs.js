@@ -1,14 +1,14 @@
 /**
- * Bilibili 适配模块 - V1.5.0
+ * Bilibili 适配模块 - V1.6.0
  * 严格按照用户提供的 demo.js 规范编写
  */
 WidgetMetadata = {
-  id: "bilibili.forward.v150",
+  id: "bilibili.forward.v160",
   title: "B站热门",
   icon: "https://www.bilibili.com/favicon.ico",
-  version: "1.5.0",
+  version: "1.6.0",
   requiredVersion: "0.0.1",
-  description: "严格对齐 Demo 规范，修复 Decoding Error 与资源加载问题",
+  description: "严格对齐 Demo 规范，修复资源解析逻辑",
   author: "Gemini",
   site: "https://www.bilibili.com",
   modules: [
@@ -30,7 +30,7 @@ WidgetMetadata = {
 };
 
 /**
- * 1. 列表获取函数
+ * 列表获取：全站热门
  */
 async function getPopular(params) {
   try {
@@ -46,27 +46,26 @@ async function getPopular(params) {
 
     const list = response.data.data.list;
 
-    // 关键修复：每个返回项必须包含 type 字段，否则会报 Decoding Error
+    // 必须包含 type 字段，否则会报 Decoding Error
     return list.map((item) => ({
       id: "https://www.bilibili.com/video/" + item.bvid,
-      type: "url", // 修复日志中的 keyNotFound("type")
+      type: "url", // 必须字段
       title: item.title,
       posterPath: item.pic.startsWith('http') ? item.pic : 'https:' + item.pic,
-      // 这里的 link 会作为参数传递给 loadResource
       link: "https://www.bilibili.com/video/" + item.bvid + "?cid=" + item.cid,
       description: item.desc || "",
     }));
   } catch (error) {
-    console.error("列表加载失败:", error);
     return [];
   }
 }
 
 /**
- * 2. 资源解析函数 - 严格按照 demo.js 返回数组
+ * 资源解析：严格对齐 demo.js 格式
  */
 async function loadResource(params) {
-  const { link } = params; // 从 params 中解构 link
+  // 从 params 中解构 link
+  const { link } = params; 
   if (!link) return [];
 
   try {
@@ -74,9 +73,8 @@ async function loadResource(params) {
     const cidMatch = link.match(/cid=(\d+)/);
     const cid = cidMatch ? cidMatch[1] : null;
 
-    // B站 playurl 接口
-    // qn=32(480P) 是无 Cookie 状态下最稳定的画质
-    const playApi = `https://api.bilibili.com/x/player/playurl?bvid=${bvid}&cid=${cid}&qn=32&type=mp4&platform=html5`;
+    // 获取播放地址 (使用 HTML5 平台接口，qn=32 为 480P 兼容模式)
+    const playApi = `https://api.bilibili.com/x/player/playurl?bvid=${bvid}&cid=${cid}&qn=32&type=mp4&platform=html5&high_quality=1`;
     
     const playResp = await Widget.http.get(playApi, {
       headers: {
@@ -91,16 +89,15 @@ async function loadResource(params) {
       // 必须返回数组，每个对象包含 name, description, url
       return [
         {
-          name: "B站稳定线路 (MP4)",
-          description: "480P 标准画质\n支持系统播放器直接调用",
+          name: "B站直连 (稳定线路)",
+          description: "480P MP4 格式\n支持系统播放器播放",
           url: videoUrl,
         }
       ];
     }
     
-    return [{ name: "解析失败", description: "B站接口未返回有效地址", url: "" }];
+    return [{ name: "解析失败", description: "B站未返回有效流地址", url: "" }];
   } catch (error) {
-    console.error("资源解析错误:", error);
     return [{ name: "解析错误", description: error.message, url: "" }];
   }
 }
