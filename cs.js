@@ -1,16 +1,16 @@
 WidgetMetadata = {
-  id: "bilibili.bangumi.rebuilt",
+  id: "bilibili.bangumi.official",
   title: "B站番剧数据",
-  version: "1.5.0",
+  version: "1.6.0",
   requiredVersion: "0.0.1",
-  description: "Bilibili 热门数据，参考官方模块 ID 与封面逻辑",
+  description: "获取 Bilibili 热门榜单，封面与 ID 完全适配官方 TMDB 数据",
   author: "Forward",
   site: "https://www.bilibili.com/anime/",
   modules: [
     {
-      id: "popularRank",
+      id: "popularRanking",
       title: "热门番剧榜",
-      functionName: "popularRank",
+      functionName: "popularRanking",
       params: []
     },
     {
@@ -23,83 +23,62 @@ WidgetMetadata = {
 };
 
 /**
- * 核心格式化逻辑：
- * 尝试将 B站数据 匹配到 官方 TMDB 数据源，以获取官方同款封面和 ID
+ * 格式化逻辑：完全参考 bangumi.js
+ * 1. 优先使用官方 TMDB 数据库中的 ID 和海报
+ * 2. 必须包含嵌套的 tmdbInfo 对象
  */
-async function formatToOfficialStyle(biliList) {
+async function formatToOfficial(biliList) {
   try {
-    // 获取官方模块同款的增强数据源（包含 TMDB 映射）
-    const proxyUrl = "https://assets.vvebo.vip/scripts/datas/latest_bangumi_trending.json";
-    const proxyRes = await Widget.http.get(proxyUrl);
-    const proxyList = proxyRes.data || [];
+    // 获取官方模块同款的 TMDB 映射数据
+    const trendingUrl = "https://assets.vvebo.vip/scripts/datas/latest_bangumi_trending.json";
+    const res = await Widget.http.get(trendingUrl);
+    const officialData = res.data || [];
 
     return biliList.map(item => {
-      // 匹配逻辑：通过标题在官方增强库中寻找
-      const matched = proxyList.find(p => 
+      // 通过标题匹配官方数据
+      const matched = officialData.find(p => 
         p.bangumi_name === item.title || 
         (p.tmdb_info && p.tmdb_info.title === item.title)
       );
 
       const tmdb = matched ? matched.tmdb_info : null;
       const sid = (item.season_id || item.ss_id || "").toString();
-      const biliPoster = (item.cover || item.pic || "").replace("http:", "https:");
 
-      // 严格遵循 bangumi.js 的嵌套对象结构
-      const tmdbInfo = {
+      // 严格按照 bangumi.js 的格式构造对象
+      return {
         id: tmdb ? tmdb.id : sid, // 优先使用 TMDB ID
+        type: "bangumi",          // 必须为 bangumi 类型
+        title: item.title,
         description: tmdb ? tmdb.description : (item.desc || item.evaluate || ""),
         releaseDate: tmdb ? tmdb.releaseDate : (item.pub_time || item.pub_date || ""),
-        backdropPath: tmdb ? tmdb.backdropPath : biliPoster,
-        posterPath: tmdb ? tmdb.posterPath : biliPoster, // 优先使用 TMDB 海报
-        rating: tmdb ? tmdb.rating : (item.rating ? parseFloat(item.rating) : 0),
+        posterPath: tmdb ? tmdb.posterPath : (item.cover || item.pic || "").replace("http:", "https:"), // 优先使用 TMDB 封面
+        backdropPath: tmdb ? tmdb.backdropPath : (item.cover || item.pic || "").replace("http:", "https:"),
+        rating: tmdb ? tmdb.rating : 0,
         mediaType: tmdb ? tmdb.mediaType : "tv",
-        genreTitle: tmdb ? tmdb.genreTitle : (item.styles ? item.styles.join("/") : "番剧"),
-        seasonInfo: item.index_show || (tmdb ? tmdb.seasonInfo : "")
-      };
-
-      return {
-        id: tmdbInfo.id,
-        type: "bangumi", // 必须设为 bangumi 类型
-        title: item.title,
-        description: tmdbInfo.description,
-        releaseDate: tmdbInfo.releaseDate,
-        posterPath: tmdbInfo.posterPath,
-        backdropPath: tmdbInfo.backdropPath,
-        rating: tmdbInfo.rating,
-        mediaType: tmdbInfo.mediaType,
-        genreTitle: tmdbInfo.genreTitle,
-        link: `https://www.bilibili.com/bangumi/play/ss${sid}`,
-        tmdbInfo: tmdbInfo, // 关键：官方模块依赖此嵌套对象渲染
+        genreTitle: tmdb ? tmdb.genreTitle : "",
+        tmdbInfo: tmdb || { id: sid }, // 必须嵌套 tmdbInfo
         hasTmdb: !!tmdb,
-        seasonInfo: tmdbInfo.seasonInfo,
-        originalTitle: item.title,
-        popularity: item.pts || 0
+        seasonInfo: item.index_show || (tmdb ? tmdb.seasonInfo : ""),
+        link: `https://www.bilibili.com/bangumi/play/ss${sid}`
       };
     });
   } catch (e) {
-    console.log("格式化失败，降级显示原始数据");
-    return biliList.map(item => ({
-      id: (item.season_id || item.ss_id).toString(),
-      type: "bangumi",
-      title: item.title,
-      posterPath: (item.cover || item.pic || "").replace("http:", "https:"),
-      tmdbInfo: { id: (item.season_id || item.ss_id).toString() }
-    }));
+    return [];
   }
 }
 
-// 1. 哔哩哔哩热门番剧榜
-async function popularRank() {
+// 模块 1: 热门番剧榜 (对接 B站排行榜)
+async function popularRanking() {
   const url = "https://api.bilibili.com/pgc/season/rank/web/list?season_type=1&day=3";
   const res = await Widget.http.get(url, { headers: { "Referer": "https://www.bilibili.com/" } });
   const list = res.data.result?.list || res.data.data?.list || [];
-  return await formatToOfficialStyle(list);
+  return await formatToOfficial(list);
 }
 
-// 2. 正在热播 (基于 B站 PGC 热门流)
+// 模块 2: 正在热播 (对接 B站热门推荐)
 async function hotAiring() {
   const url = "https://api.bilibili.com/pgc/web/discover/popular?page=1&pagesize=30";
   const res = await Widget.http.get(url, { headers: { "Referer": "https://www.bilibili.com/" } });
   const list = res.data.result?.list || res.data.data?.list || [];
-  return await formatToOfficialStyle(list);
+  return await formatToOfficial(list);
 }
