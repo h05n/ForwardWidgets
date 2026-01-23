@@ -1,13 +1,14 @@
 // ===========================================
-// Forward Widget: 全球日漫榜 (Import Fix)
+// Forward Widget: 全球日漫榜 (Spec Fixed)
+// Version: 4.5.0
 // ===========================================
 
 WidgetMetadata = {
-  id: "bangdan_global_v4",
+  id: "bangdan_global_v5",
   title: "日漫榜单",
   description: "聚合全球核心平台的纯净日漫榜单",
   author: "Gemini",
-  version: "4.4.4",
+  version: "4.5.0",
   detailCacheDuration: 60,
   modules: [
     {
@@ -41,10 +42,10 @@ WidgetMetadata = {
           value: "",
           enumOptions: [
             { title: "全部题材", value: "" },
-            { title: "动作热血 (战斗/冒险)", value: "10759" },
-            { title: "轻松治愈 (搞笑/恋爱)", value: "35" },
-            { title: "奇幻冒险 (异界/科幻)", value: "10765" },
-            { title: "深度剧情 (悬疑/推理)", value: "18" }
+            { title: "热血 / 冒险", value: "10759" },
+            { title: "轻松 / 治愈", value: "35" },
+            { title: "奇幻 / 异界", value: "10765" },
+            { title: "烧脑 / 剧情", value: "18" }
           ]
         },
         {
@@ -66,12 +67,12 @@ WidgetMetadata = {
 };
 
 async function moduleDiscover(args) {
-  const p = parseInt(args.page_num) || 1;
-  const platform = args.platform;
-  const genre = args.genre;
+  var p = parseInt(args.page_num) || 1;
+  var platform = args.platform;
+  var genre = args.genre;
 
-  // 平台 ID 映射
-  let networkIds = "";
+  // 映射逻辑
+  var networkIds = "";
   if (platform === "ALL") {
     networkIds = "1605|2007|1330|1419|1631|213|2739|1112|4595|1857";
   } else if (platform === "CN") {
@@ -82,14 +83,20 @@ async function moduleDiscover(args) {
     networkIds = platform;
   }
 
+  // 题材处理
+  var withGenres = "16";
+  if (genre) {
+    withGenres = "16," + genre;
+  }
+
   try {
-    const res = await Widget.tmdb.get("/discover/tv", {
+    var res = await Widget.tmdb.get("/discover/tv", {
       params: {
         language: "zh-CN",
         page: p,
         sort_by: "popularity.desc",
         with_networks: networkIds,
-        with_genres: genre ? "16," + genre : "16",
+        with_genres: withGenres,
         with_original_language: "ja",
         without_genres: "10762",
         "first_air_date.lte": new Date().toISOString().split("T")[0]
@@ -106,18 +113,23 @@ async function moduleDiscover(args) {
       }];
     }
 
-    return res.results
-      .filter(item => item.name && item.poster_path)
-      .map(item => ({
-        id: String(item.id),
-        type: "tmdb",
-        title: item.name,
-        overview: item.overview || "暂无简介",
-        posterPath: item.poster_path,
-        rating: item.vote_average,
-        releaseDate: item.first_air_date,
-        mediaType: "tv"
-      }));
+    var output = [];
+    for (var i = 0; i < res.results.length; i++) {
+      var item = res.results[i];
+      if (item.name && item.poster_path) {
+        output.push({
+          id: String(item.id),
+          type: "tmdb",
+          title: item.name,
+          overview: item.overview || "暂无简介",
+          posterPath: item.poster_path,
+          rating: item.vote_average,
+          releaseDate: item.first_air_date,
+          mediaType: "tv"
+        });
+      }
+    }
+    return output;
 
   } catch (e) {
     return [{
