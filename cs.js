@@ -1,22 +1,16 @@
 WidgetMetadata = {
-  id: "bilibili.official.standard",
+  id: "bilibili.bangumi.final",
   title: "B站番剧数据",
-  version: "2.6.0",
+  version: "1.0.0",
   requiredVersion: "0.0.1",
-  description: "仅保留热门与热播，强制匹配 TMDB 动漫海报，优化名称搜索",
+  description: "仅保留热门番剧榜，对齐 TMDB 官方封面逻辑",
   author: "Forward",
   site: "https://www.bilibili.com/anime/",
   modules: [
     {
-      id: "popularRanking",
+      id: "popularRank",
       title: "热门番剧榜",
-      functionName: "popularRanking",
-      params: []
-    },
-    {
-      id: "hotAiring",
-      title: "正在热播",
-      functionName: "hotAiring",
+      functionName: "popularRank",
       params: []
     }
   ]
@@ -24,7 +18,6 @@ WidgetMetadata = {
 
 /**
  * 标题清洗：剔除 B站 标题干扰项（如：第2季、中配、(中文)）
- * 确保 TMDB 搜索能对得上
  */
 function cleanTitle(title) {
   if (!title) return "";
@@ -37,18 +30,24 @@ function cleanTitle(title) {
 }
 
 /**
- * TMDB 匹配逻辑：强制使用 TV 类型以过滤真人电影
+ * TMDB 搜索核心：请在下方 apiKey 处填入你自己的密钥
  */
-async function getTmdbInfo(originalTitle) {
+async function getTmdbStandard(originalTitle) {
   try {
     const query = cleanTitle(originalTitle);
-    // 请在此处确认你的 API Key 是否填写正确
+    // ↓ 请在此处填写你的 API Key
     const apiKey = "cf2190683e55fad0f978c719d0bc1c68"; 
-    const url = `https://api.themoviedb.org/3/search/multi?api_key=${apiKey}&query=${encodeURIComponent(query)}&language=zh-CN`;
     
-    const res = await Widget.http.get(url);
+    if (apiKey === "请自行填写") {
+      console.log("提示：请先在脚本中填写 TMDB API Key");
+      return null;
+    }
+
+    const searchUrl = `https://api.themoviedb.org/3/search/multi?api_key=${apiKey}&query=${encodeURIComponent(query)}&language=zh-CN`;
+    const res = await Widget.http.get(searchUrl);
+    
     if (res.data && res.data.results && res.data.results.length > 0) {
-      // 优先寻找 media_type 为 tv 的条目，防止匹配到真人电影
+      // 优先匹配类型为 tv (动漫剧集) 的结果，防止匹配到真人电影
       const match = res.data.results.find(i => i.media_type === "tv") || res.data.results[0];
       
       return {
@@ -70,17 +69,21 @@ async function getTmdbInfo(originalTitle) {
 /**
  * 格式化：绝对弃用 B站封面，仅保留匹配成功的项
  */
-async function processList(biliList) {
+async function formatWithTmdb(biliList) {
   const results = [];
   for (const item of biliList) {
-    const tmdb = await getTmdbInfo(item.title);
-    if (tmdb && tmdb.posterPath) { // 必须有 TMDB 海报才展示
-      const sid = (item.season_id || item.ss_id).toString();
+    const tmdb = await getTmdbStandard(item.title);
+    
+    // 只有在 TMDB 匹配到高清海报时才展示
+    if (tmdb && tmdb.posterPath) {
+      const sid = (item.season_id || item.ss_id || "").toString();
+      
       const info = {
         ...tmdb,
         genreTitle: item.styles ? item.styles.join("/") : "番剧",
         seasonInfo: item.index_show || item.new_ep?.index_show || ""
       };
+
       results.push({
         id: info.id,
         type: "bangumi",
@@ -98,18 +101,19 @@ async function processList(biliList) {
   return results;
 }
 
-// 模块 1: 热门番剧榜 (B站排行榜接口)
-async function popularRanking() {
-  const url = "https://api.bilibili.com/pgc/season/rank/web/list?season_type=1&day=3";
-  const res = await Widget.http.get(url, { headers: { "Referer": "https://www.bilibili.com" } });
-  const list = res.data.result?.list || res.data.data?.list || [];
-  return await processList(list.slice(0, 15));
-}
-
-// 模块 2: 正在热播 (修复 404，使用官方索引最热排序)
-async function hotAiring() {
-  const url = "https://api.bilibili.com/pgc/season/index/condition?season_type=1&order=3&pagesize=20";
-  const res = await Widget.http.get(url, { headers: { "Referer": "https://www.bilibili.com" } });
-  const list = res.data.data?.list || [];
-  return await processList(list);
+/**
+ * 模块入口：热门番剧榜
+ */
+async function popularRank() {
+  try {
+    const url = "https://api.bilibili.com/pgc/season/rank/web/list?season_type=1&day=3";
+    const res = await Widget.http.get(url, { headers: { "Referer": "https://www.bilibili.com/" } });
+    
+    const list = res.data.result?.list || res.data.data?.list || [];
+    // 每次刷新匹配前 15 条，保证显示质量与加载速度
+    return await formatWithTmdb(list.slice(0, 15));
+  } catch (e) {
+    console.log("获取 B站排行失败: " + e.message);
+    return [];
+  }
 }
