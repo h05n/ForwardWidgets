@@ -1,26 +1,28 @@
 // ===========================================
-// Forward Widget: 全球日漫榜 (Spec Compliance)
-// Version: 4.4.3
+// Forward Widget: 全球日漫榜 (Import Fix)
 // ===========================================
 
 WidgetMetadata = {
-  id: "bangdan_global_pro", 
+  id: "bangdan_global_v4",
   title: "日漫榜单",
   description: "聚合全球核心平台的纯净日漫榜单",
   author: "Gemini",
-  version: "4.4.3", 
-  detailCacheDuration: 60, 
+  version: "4.4.4",
+  detailCacheDuration: 60,
   modules: [
     {
       title: "日漫榜单",
       requiresWebView: false,
       functionName: "moduleDiscover",
-      cacheDuration: 3600, 
+      cacheDuration: 3600,
       params: [
         {
-          name: "platform", title: "选择平台", type: "enumeration", value: "ALL", 
+          name: "platform",
+          title: "选择平台",
+          type: "enumeration",
+          value: "ALL",
           enumOptions: [
-            { title: "全部 (全球聚合)", value: "ALL" }, 
+            { title: "全部 (全球聚合)", value: "ALL" },
             { title: "国内聚合 (三大巨头)", value: "CN" },
             { title: "国外聚合 (四大巨头)", value: "INTL" },
             { title: "├ 哔哩哔哩", value: "1605" },
@@ -33,7 +35,10 @@ WidgetMetadata = {
           ]
         },
         {
-          name: "genre", title: "动画题材", type: "enumeration", value: "",
+          name: "genre",
+          title: "动画题材",
+          type: "enumeration",
+          value: "",
           enumOptions: [
             { title: "全部题材", value: "" },
             { title: "动作热血 (战斗/冒险)", value: "10759" },
@@ -42,12 +47,17 @@ WidgetMetadata = {
             { title: "深度剧情 (悬疑/推理)", value: "18" }
           ]
         },
-        { 
-          name: "page_num", title: "选择页码", type: "enumeration", value: "1",
+        {
+          name: "page_num",
+          title: "选择页码",
+          type: "enumeration",
+          value: "1",
           enumOptions: [
-            {title: "第 1 页", value: "1"}, {title: "第 2 页", value: "2"},
-            {title: "第 3 页", value: "3"}, {title: "第 4 页", value: "4"},
-            {title: "第 5 页", value: "5"}
+            { title: "第 1 页", value: "1" },
+            { title: "第 2 页", value: "2" },
+            { title: "第 3 页", value: "3" },
+            { title: "第 4 页", value: "4" },
+            { title: "第 5 页", value: "5" }
           ]
         }
       ]
@@ -55,71 +65,67 @@ WidgetMetadata = {
   ]
 };
 
-// --- 逻辑实现部分 ---
-
-const Render = {
-    card: (item) => ({
-        id: String(item.id), 
-        type: "tmdb", 
-        title: item.name, 
-        overview: item.overview || "暂无简介",
-        posterPath: item.poster_path, 
-        rating: item.vote_average,
-        releaseDate: item.first_air_date, 
-        mediaType: "tv"
-    }),
-    info: (title, desc) => ({
-        id: "msg_" + Math.random().toString(36).substr(2), 
-        type: "info", 
-        title: title, 
-        description: desc, 
-        mediaType: "info"
-    })
-};
-
 async function moduleDiscover(args) {
-    const { platform, genre, page_num } = args;
-    const p = parseInt(page_num) || 1;
-    
-    // 映射平台 ID 字符串
-    let networkIds = "";
-    if (platform === "ALL") {
-        networkIds = "1605|2007|1330|1419|1631|213|2739|1112|4595|1857";
-    } else if (platform === "CN") {
-        networkIds = "1605|2007|1330";
-    } else if (platform === "INTL") {
-        networkIds = "213|2739|1112|4595";
-    } else {
-        networkIds = platform;
+  const p = parseInt(args.page_num) || 1;
+  const platform = args.platform;
+  const genre = args.genre;
+
+  // 平台 ID 映射
+  let networkIds = "";
+  if (platform === "ALL") {
+    networkIds = "1605|2007|1330|1419|1631|213|2739|1112|4595|1857";
+  } else if (platform === "CN") {
+    networkIds = "1605|2007|1330";
+  } else if (platform === "INTL") {
+    networkIds = "213|2739|1112|4595";
+  } else {
+    networkIds = platform;
+  }
+
+  try {
+    const res = await Widget.tmdb.get("/discover/tv", {
+      params: {
+        language: "zh-CN",
+        page: p,
+        sort_by: "popularity.desc",
+        with_networks: networkIds,
+        with_genres: genre ? "16," + genre : "16",
+        with_original_language: "ja",
+        without_genres: "10762",
+        "first_air_date.lte": new Date().toISOString().split("T")[0]
+      }
+    });
+
+    if (!res || !res.results || res.results.length === 0) {
+      return [{
+        id: "msg_empty",
+        type: "info",
+        title: "无匹配结果",
+        description: "当前分类下暂无数据",
+        mediaType: "info"
+      }];
     }
 
-    try {
-        const res = await Widget.tmdb.get('/discover/tv', { 
-            params: {
-                language: 'zh-CN', 
-                page: p,
-                sort_by: 'popularity.desc', 
-                with_networks: networkIds,
-                with_genres: genre ? "16," + genre : "16",
-                with_original_language: 'ja', 
-                without_genres: "10762", 
-                'first_air_date.lte': new Date().toISOString().split('T')[0]
-            }
-        });
-        
-        if (!res || !res.results || res.results.length === 0) {
-            return [Render.info("无匹配结果", "当前分类下暂无数据")];
-        }
+    return res.results
+      .filter(item => item.name && item.poster_path)
+      .map(item => ({
+        id: String(item.id),
+        type: "tmdb",
+        title: item.name,
+        overview: item.overview || "暂无简介",
+        posterPath: item.poster_path,
+        rating: item.vote_average,
+        releaseDate: item.first_air_date,
+        mediaType: "tv"
+      }));
 
-        const validResults = res.results.filter(item => item.name && item.poster_path);
-        
-        if (validResults.length === 0) {
-            return [Render.info("加载异常", "未能获取到完整的海报信息")];
-        }
-
-        return validResults.map(item => Render.card(item));
-
-    } catch (e) {
-        return [Render.info("请求失败", "TMDB 通道暂时不可用")];
-    }
+  } catch (e) {
+    return [{
+      id: "msg_error",
+      type: "info",
+      title: "请求失败",
+      description: "TMDB 通道暂时不可用",
+      mediaType: "info"
+    }];
+  }
 }
