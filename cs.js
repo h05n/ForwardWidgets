@@ -1,30 +1,48 @@
 // ===========================================
-// Forward Widget: 哔哩哔哩番剧榜 (No Jump)
-// Version: 2.1.0
+// Forward Widget: 纯净日漫榜 (Japan Audio Locked)
+// Version: 3.0.0 (Stable TMDB)
 // ===========================================
 
 WidgetMetadata = {
-  id: "bilibili_rank_v2", // 保持ID以便覆盖之前的缓存
-  title: "B站番剧榜",
-  description: "B站官方番剧热门榜 (无跳转版)",
+  // 修改ID强制刷新缓存
+  id: "bangdan_japan_v3", 
+  title: "番剧榜单",
+  description: "只展示日本原声动画 (彻底屏蔽国产3D)",
   author: "ForwardUser",
-  site: "https://www.bilibili.com",
-  version: "2.1.0",
+  site: "https://github.com/h05n/ForwardWidgets",
+  version: "3.0.0",
   requiredVersion: "0.0.1",
   detailCacheDuration: 60, 
   modules: [
     {
-      title: "B站番剧",
-      description: "查看B站热门日本番剧",
+      title: "日漫榜单",
+      description: "浏览国内引进的日本动画",
       requiresWebView: false,
-      functionName: "moduleBilibiliRank",
-      cacheDuration: 1800, // 缓存30分钟
+      functionName: "moduleDiscover",
+      cacheDuration: 3600, // 缓存60分钟
       params: [
         {
-          name: "rank_type", title: "榜单类型", type: "enumeration", value: "3",
+          name: "platform", title: "播出平台", type: "enumeration", value: "1605",
           enumOptions: [
-            { title: "近期热门 (三日)", value: "3" },
-            { title: "每周热门 (七日)", value: "7" }
+            { title: "哔哩哔哩", value: "1605" }, // 默认B站
+            { title: "腾讯视频", value: "2007" },
+            { title: "爱奇艺", value: "1330" },
+            { title: "优酷", value: "1419" },
+            { title: "芒果TV", value: "1631" },
+            { title: "全部平台", value: "1605|2007|1330|1419|1631" }
+          ]
+        },
+        {
+          name: "genre", title: "动画题材", type: "enumeration", value: "",
+          enumOptions: [
+            { title: "全部题材", value: "" },
+            { title: "热血战斗", value: "10759" },
+            { title: "异界奇幻", value: "10765" },
+            { title: "搞笑恋爱", value: "35" },
+            { title: "日常治愈", value: "10751" },
+            { title: "悬疑智斗", value: "9648" },
+            { title: "深度剧情", value: "18" },
+            { title: "战争机战", value: "10768" }
           ]
         },
         { 
@@ -32,7 +50,9 @@ WidgetMetadata = {
           enumOptions: [
             {title: "第一页", value: "1"}, {title: "第二页", value: "2"},
             {title: "第三页", value: "3"}, {title: "第四页", value: "4"},
-            {title: "第五页", value: "5"} 
+            {title: "第五页", value: "5"}, {title: "第六页", value: "6"},
+            {title: "第七页", value: "7"}, {title: "第八页", value: "8"},
+            {title: "第九页", value: "9"}, {title: "第十页", value: "10"}
           ]
         }
       ]
@@ -43,18 +63,15 @@ WidgetMetadata = {
 // ================= 核心工具 =================
 
 const Render = {
-    // 渲染卡片 (改为 tmdb 类型，只展示不跳转)
-    card: (item, rank) => ({
-        id: String(item.season_id), 
-        type: "tmdb", // 核心修改：改回 tmdb 类型，取消 link 跳转
-        title: item.title, 
-        // 图片容错处理
-        posterPath: item.cover.startsWith("http") ? item.cover : `https:${item.cover}`,
-        // 简介显示更新进度
-        overview: item.new_ep ? item.new_ep.index_show : (item.desc || "暂无简介"), 
-        // 借用日期字段显示排名
-        releaseDate: `当前排名: 第${rank}名`, 
-        rating: 0, // 榜单接口不带评分，置0
+    // 采用您最喜欢的 TMDB 卡片样式，不跳转
+    card: (item) => ({
+        id: String(item.id), 
+        type: "tmdb", 
+        title: item.name, 
+        overview: item.overview || "暂无简介",
+        posterPath: item.poster_path, 
+        rating: item.vote_average,
+        releaseDate: item.first_air_date, 
         mediaType: "tv"
     }),
     info: (title, desc) => ({
@@ -66,47 +83,56 @@ const Render = {
     })
 };
 
+const getBeijingToday = () => {
+    const d = new Date();
+    const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
+    const bjTime = new Date(utc + (3600000 * 8)); 
+    return bjTime.toISOString().split('T')[0];
+};
+
 // ================= 模块实现 =================
 
-async function moduleBilibiliRank(args) {
-    const { rank_type, page_num } = args;
-    
+async function moduleDiscover(args) {
+    const { platform, genre, page_num } = args;
     const p = parseInt(page_num) || 1;
-    const pageSize = 10;
-    const startIdx = (p - 1) * pageSize;
-    const endIdx = startIdx + pageSize;
 
-    // B站官方 PGC Web 榜单 API
-    // season_type=1: 锁死番剧 (日漫)
-    const API_URL = "https://api.bilibili.com/pgc/web/rank/list";
-    
+    // 默认 B站 (1605)
+    const targetPlatform = platform || "1605";
+
     try {
-        const res = await Widget.http.get(API_URL, { 
+        // 使用 Widget.tmdb.get (最稳定的通道)
+        const res = await Widget.tmdb.get('/discover/tv', { 
             params: {
-                day: rank_type || "3", 
-                season_type: "1"       
-            },
-            // 必须带请求头，否则B站拦截
-            headers: {
-                "Referer": "https://www.bilibili.com/",
-                "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1"
+                language: 'zh-CN', 
+                page: p,
+                sort_by: 'first_air_date.desc', // 按首播时间看最新
+                
+                // 1. 平台过滤：只看国内引进了的
+                with_networks: targetPlatform,
+                
+                // 2. 题材过滤：叠加用户选的题材
+                with_genres: genre ? `16,${genre}` : "16",
+                
+                // 3. 必杀技：锁死原声语言为日语 (ja)
+                // 只要这一行在，国产3D (zh) 就不可能混进来
+                with_original_language: 'ja',
+                
+                // 4. 辅助：排除儿童
+                without_genres: "10762", 
+                
+                // 5. 时间：已开播
+                'first_air_date.lte': getBeijingToday()
             }
         });
         
-        if (!res || !res.result || !res.result.list) {
-            return [Render.info("加载异常", "B站接口未返回数据，请稍后重试")];
-        }
+        const results = res.results || [];
 
-        const fullList = res.result.list;
-        const pageItems = fullList.slice(startIdx, endIdx);
-
-        if (pageItems.length === 0) {
-            return [Render.info("到底了", "后面没有更多内容了")];
-        }
-
-        return pageItems.map((item, index) => Render.card(item, startIdx + index + 1));
+        return results
+            // 基础清洗：必须有名字和海报
+            .filter(item => item.name && item.poster_path)
+            .map(item => Render.card(item));
 
     } catch (e) {
-        return [Render.info("网络错误", "无法连接到哔哩哔哩")];
+        return [Render.info("加载失败", "网络请求错误，请检查网络")];
     }
 }
