@@ -1,9 +1,9 @@
 WidgetMetadata = {
-  id: "bilibili.bangumi.official.v3", // 每次失败必须换新 ID 才能强制覆盖 App 缓存
+  id: "bilibili.rank.official.standard.v5", // 使用新 ID 彻底清除缓存冲突
   title: "B站番剧排行",
   version: "1.0.0",
   requiredVersion: "0.0.1",
-  description: "完全对照官方 bangumi.js 结构重写，支持自动翻页，仅高清海报",
+  description: "完全对齐官方自动翻页逻辑，严选高清海报，无 B站原图",
   author: "Forward",
   site: "https://www.bilibili.com/anime/",
   modules: [
@@ -11,7 +11,7 @@ WidgetMetadata = {
       id: "popularRank",
       title: "热门番剧榜",
       functionName: "popularRank",
-      // 官方标准分页参数：不使用 enumeration，App 滚动到底部会自动累加 page
+      // 官方标准：使用 number 类型参数触发无限滚动
       params: [
         {
           name: "page",
@@ -24,11 +24,11 @@ WidgetMetadata = {
   ]
 };
 
-// --- 全局配置：在此填入你的 API KEY ---
-const TMDB_API_KEY = "cf2190683e55fad0f978c719d0bc1c68"; 
+// --- 全局配置 ---
+const TMDB_API_KEY = "cf2190683e55fad0f978c719d0bc1c68"; // ← 请填入你的 API KEY
 
 /**
- * 官方标准标题清洗
+ * 官方标准清洗逻辑
  */
 function clean(t) {
   if (!t) return "";
@@ -36,7 +36,7 @@ function clean(t) {
 }
 
 /**
- * 官方标准数据封包：严格对齐每一个必填字段
+ * 官方标准匹配封装
  */
 async function fetchItem(item) {
   if (!TMDB_API_KEY || TMDB_API_KEY === "请自行填写") return null;
@@ -46,23 +46,23 @@ async function fetchItem(item) {
     const res = await Widget.http.get(url);
     const m = res.data?.results?.[0];
 
-    // 严选逻辑：只要没有 TMDB 海报地址，直接跳过
+    // 严选逻辑：仅保留有高清海报的项
     if (m && m.poster_path) {
       return {
-        id: m.id.toString(), // 官方要求：ID 必须是字符串
-        type: "bangumi",     // 官方要求：类型必须是 bangumi
+        id: m.id.toString(), // 必须为字符串
+        type: "bangumi",     // 必须为 bangumi
         title: item.title,
         description: m.overview || "",
-        posterPath: `https://image.tmdb.org/t/p/w500${m.poster_path}`,
-        backdropPath: m.backdrop_path ? `https://image.tmdb.org/t/p/original${m.backdrop_path}` : "",
-        // 关键字段：必须包含 mediaType 且 id 为字符串
+        posterPath: "https://image.tmdb.org/t/p/w500" + m.poster_path,
+        backdropPath: m.backdrop_path ? "https://image.tmdb.org/t/p/original" + m.backdrop_path : "",
+        // 关键：必须包含完整 tmdbInfo 且 mediaType 为 tv
         tmdbInfo: { 
           id: m.id.toString(), 
           mediaType: "tv" 
         },
         hasTmdb: true,
-        seasonInfo: `⭐${item.rating || 'N/A'} | ${item.index_show || ''}`,
-        link: `https://www.bilibili.com/bangumi/play/ss${item.season_id || item.ss_id}`
+        seasonInfo: "⭐" + (item.rating || "N/A") + " | " + (item.index_show || ""),
+        link: "https://www.bilibili.com/bangumi/play/ss" + (item.season_id || item.ss_id)
       };
     }
   } catch (e) { return null; }
@@ -70,23 +70,23 @@ async function fetchItem(item) {
 }
 
 /**
- * 入口函数：对齐官方自动翻页调用逻辑
+ * 官方标准入口函数
  */
 async function popularRank(params) {
   try {
-    // 自动分页读取
+    // 1. 解析分页
     const page = (params && params.page) ? parseInt(params.page) : 1;
     const start = (page - 1) * 20;
 
-    // 限制最高 100 条
+    // 限制 100 条 (5页)
     if (start >= 100) return [];
 
-    // 获取 B站 排行榜原始数据
+    // 2. 获取 B站 排行榜
     const res = await Widget.http.get("https://api.bilibili.com/pgc/season/rank/web/list?season_type=1&day=3", {
       headers: { "Referer": "https://www.bilibili.com/" }
     });
 
-    // 多重降级解析，确保不返回空
+    // 3. 多重解析 B站 数据层级
     let rawList = [];
     if (res.data) {
       rawList = res.data.result?.list || res.data.data?.list || res.data.list || [];
@@ -94,11 +94,11 @@ async function popularRank(params) {
 
     if (rawList.length === 0) return [];
 
+    // 4. 截取分页并并行匹配 TMDB
     const pageItems = rawList.slice(start, start + 20);
-    // 并发匹配
     const results = await Promise.all(pageItems.map(item => fetchItem(item)));
     
-    // 过滤掉匹配失败的项
+    // 5. 过滤掉匹配失败的项
     return results.filter(i => i !== null);
 
   } catch (e) {
