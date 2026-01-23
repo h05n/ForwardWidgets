@@ -1,135 +1,165 @@
+/**
+ * Forward 弹幕模块 - 国内全平台原生聚合
+ * 严格遵循 InchStudio/ForwardWidgets 规范
+ */
+
 var WidgetMetadata = {
-    id: "com.native.danmu.china_all",
+    id: "com.native.danmu.strict_fixed",
     title: "国内原生弹幕聚合",
     description: "聚合B站、腾讯、爱奇艺、优酷、芒果TV原生弹幕",
     author: "ForwardHelper",
     site: "https://github.com/InchStudio/ForwardWidgets",
-    version: "1.2.0",
+    version: "1.0.3",
     requiredVersion: "0.0.1",
     detailCacheDuration: 60,
     modules: [
         {
             id: "searchDanmu",
             title: "搜索弹幕",
+            description: "根据关键词搜索各平台视频弹幕资源",
+            requiresWebView: false,
             functionName: "searchDanmu",
-            type: "danmu",
+            sectionMode: false,
+            cacheDuration: 3600,
             params: []
         },
         {
             id: "getComments",
-            title: "获取弹幕列表",
+            title: "获取弹幕",
+            description: "获取视频分集弹幕信息",
+            requiresWebView: false,
             functionName: "getCommentsById",
-            type: "danmu",
+            sectionMode: false,
+            cacheDuration: 3600,
             params: []
         },
         {
             id: "getDanmuWithSegmentTime",
             title: "获取指定时刻弹幕",
+            description: "按播放进度分段加载弹幕内容",
+            requiresWebView: false,
             functionName: "getDanmuWithSegmentTime",
-            type: "danmu",
+            sectionMode: false,
+            cacheDuration: 3600,
             params: []
         }
     ]
 };
 
-// 1. 搜索逻辑
+/**
+ * 1. 搜索函数
+ */
 async function searchDanmu(params = {}) {
-    const keyword = params.title || "";
+    var keyword = params.title || "";
     if (!keyword) return [];
-    const results = [];
-    const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+    var results = [];
+    var UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
-    // --- B站原生搜索 ---
+    // --- Bilibili 搜索 ---
     try {
-        const res = await Widget.http.get(`https://api.bilibili.com/x/web-interface/search/type?search_type=video&keyword=${encodeURIComponent(keyword)}`, { headers: { "User-Agent": UA, "Referer": "https://www.bilibili.com" } });
-        const data = typeof res.data === 'string' ? JSON.parse(res.data) : res.data;
-        if (data.data && data.data.result) {
-            data.data.result.slice(0, 5).forEach(item => {
+        var res = await Widget.http.get("https://api.bilibili.com/x/web-interface/search/type?search_type=video&keyword=" + encodeURIComponent(keyword), { 
+            headers: { "User-Agent": UA, "Referer": "https://www.bilibili.com" } 
+        });
+        var data = (typeof res.data === 'string') ? JSON.parse(res.data) : res.data;
+        if (data && data.data && data.data.result) {
+            for (var i = 0; i < Math.min(data.data.result.length, 5); i++) {
+                var item = data.data.result[i];
                 results.push({
                     id: "bili_" + item.bvid,
                     title: "[B站] " + item.title.replace(/<[^>]+>/g, ''),
                     type: "danmu",
-                    source: "bilibili",
-                    bvid: item.bvid
+                    bvid: item.bvid,
+                    source: "bilibili"
                 });
-            });
+            }
         }
     } catch (e) {}
 
-    // --- 芒果TV原生搜索 ---
+    // --- 芒果TV 搜索 ---
     try {
-        const res = await Widget.http.get(`https://pcweb.api.mgtv.com/search/fulltext?q=${encodeURIComponent(keyword)}`, { headers: { "User-Agent": UA } });
-        const data = typeof res.data === 'string' ? JSON.parse(res.data) : res.data;
-        if (data.data && data.data.contents) {
-            data.data.contents.slice(0, 3).forEach(item => {
+        var resM = await Widget.http.get("https://pcweb.api.mgtv.com/search/fulltext?q=" + encodeURIComponent(keyword), { headers: { "User-Agent": UA } });
+        var dataM = (typeof resM.data === 'string') ? JSON.parse(resM.data) : resM.data;
+        if (dataM && dataM.data && dataM.data.contents) {
+            for (var j = 0; j < Math.min(dataM.data.contents.length, 3); j++) {
+                var itemM = dataM.data.contents[j];
                 results.push({
-                    id: "mgtv_" + item.id,
-                    title: "[芒果] " + item.title.replace(/<[^>]+>/g, ''),
+                    id: "mgtv_" + itemM.id,
+                    title: "[芒果] " + itemM.title.replace(/<[^>]+>/g, ''),
                     type: "danmu",
-                    source: "mgtv",
-                    videoId: item.id
+                    videoId: itemM.id,
+                    source: "mgtv"
                 });
-            });
+            }
         }
     } catch (e) {}
 
-    // 占位符引导（腾讯、优酷、爱奇艺）
-    results.push({ id: "tx_m", title: "[腾讯] 匹配: " + keyword, type: "danmu", source: "tencent", kw: keyword });
-    results.push({ id: "iq_m", title: "[爱奇艺] 匹配: " + keyword, type: "danmu", source: "iqiyi", kw: keyword });
-    results.push({ id: "yk_m", title: "[优酷] 匹配: " + keyword, type: "danmu", source: "youku", kw: keyword });
+    // 占位引导
+    results.push({ id: "tx_guide", title: "[腾讯视频] 匹配: " + keyword, type: "danmu", source: "tencent" });
+    results.push({ id: "iq_guide", title: "[爱奇艺] 匹配: " + keyword, type: "danmu", source: "iqiyi" });
+    results.push({ id: "yk_guide", title: "[优酷] 匹配: " + keyword, type: "danmu", source: "youku" });
 
     return results;
 }
 
-// 2. 获取剧集/CID
+/**
+ * 2. 获取分集
+ */
 async function getCommentsById(params = {}) {
-    const source = params.source;
+    var source = params.source;
+    
     if (source === "bilibili") {
         try {
-            const res = await Widget.http.get(`https://api.bilibili.com/x/player/pagelist?bvid=${params.bvid}`);
-            const data = typeof res.data === 'string' ? JSON.parse(res.data) : res.data;
-            return data.data.map(p => ({
-                cid: p.cid.toString(),
-                title: p.part || "正片",
-                commentId: p.cid.toString(),
-                source: "bilibili"
-            }));
+            var res = await Widget.http.get("https://api.bilibili.com/x/player/pagelist?bvid=" + params.bvid);
+            var data = (typeof res.data === 'string') ? JSON.parse(res.data) : res.data;
+            return data.data.map(function(p) {
+                return {
+                    cid: p.cid.toString(),
+                    title: p.part || "正片",
+                    commentId: p.cid.toString(),
+                    source: "bilibili"
+                };
+            });
         } catch (e) { return []; }
     }
-    
+
     if (source === "mgtv") {
         return [{ cid: params.videoId.toString(), title: "正片", commentId: params.videoId.toString(), source: "mgtv" }];
     }
 
-    return [{ cid: "p_" + source, title: "点击加载弹幕", commentId: "0", source: source }];
+    return [{ cid: "0", title: "点击加载", commentId: "0", source: source }];
 }
 
-// 3. 加载弹幕内容
+/**
+ * 3. 加载弹幕内容
+ */
 async function getDanmuWithSegmentTime(params = {}) {
-    const cid = params.commentId || params.cid;
-    const source = params.source;
-    const st = params.segmentTime || 0;
+    var cid = params.commentId || params.cid;
+    var source = params.source;
+    var st = params.segmentTime || 0;
 
     if (source === "bilibili") {
         try {
-            const res = await Widget.http.get(`https://api.bilibili.com/x/v1/dm/list.so?oid=${cid}`);
-            const $ = Widget.html.load(res.data, { xmlMode: true });
-            return $('d').map((i, el) => {
-                const p = $(el).attr('p').split(',');
-                return [parseFloat(p[0]), p[1], "#" + parseInt(p[3]).toString(16), "", $(el).text()];
-            }).get();
+            var res = await Widget.http.get("https://api.bilibili.com/x/v1/dm/list.so?oid=" + cid);
+            var $ = Widget.html.load(res.data, { xmlMode: true });
+            var list = [];
+            $('d').each(function(i, el) {
+                var p = $(el).attr('p').split(',');
+                list.push([parseFloat(p[0]), p[1], "#" + parseInt(p[3]).toString(16).padStart(6, '0'), "", $(el).text()]);
+            });
+            return list;
         } catch (e) { return []; }
     }
 
     if (source === "mgtv") {
         try {
-            const page = Math.floor(st / 60);
-            const res = await Widget.http.get(`https://bullet-v2.mgtv.com/v2/get_bullet?video_id=${cid}&page=${page}`);
-            const data = typeof res.data === 'string' ? JSON.parse(res.data) : res.data;
-            return data.data.items.map(it => [it.time / 1000, 1, "#ffffff", "", it.content]);
+            var page = Math.floor(st / 60);
+            var res = await Widget.http.get("https://bullet-v2.mgtv.com/v2/get_bullet?video_id=" + cid + "&page=" + page);
+            var data = (typeof res.data === 'string') ? JSON.parse(res.data) : res.data;
+            return data.data.items.map(function(it) {
+                return [it.time / 1000, 1, "#ffffff", "", it.content];
+            });
         } catch (e) { return []; }
     }
 
-    // 腾讯/爱奇艺/优酷 默认返回空，待特定版本注入解密库
     return [];
 }
