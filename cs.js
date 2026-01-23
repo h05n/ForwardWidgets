@@ -42,7 +42,6 @@ WidgetMetadata = {
         },
         {
           name: "sort_by", title: "排序方式", type: "enumeration", value: "first_air_date.desc",
-          // 已恢复完整的 5 个排序选项
           enumOptions: [
             { title: "上映时间↓", value: "first_air_date.desc" },
             { title: "上映时间↑", value: "first_air_date.asc" },
@@ -193,8 +192,12 @@ function addBlockedItem(item) {
     const list = getBlockedItems();
     const sid = String(item.id);
     if (list.some(i => i.id === sid && i.media_type === item.media_type)) return false;
+    
+    // 关键修正：确保剧集也能读取到标题 (item.name)
+    const displayTitle = item.title || item.name || `ID:${sid}`;
+    
     list.push({
-        id: sid, media_type: item.media_type, title: item.title,
+        id: sid, media_type: item.media_type, title: displayTitle,
         poster_path: item.poster_path, overview: item.overview,
         blocked_date: new Date().toISOString(), vote_average: item.vote_average || 0
     });
@@ -242,7 +245,8 @@ async function fetchTmdbBase(endpoint, params) {
             rating: item.vote_average,
             mediaType: mType,
             genreTitle: getTmdbGenreTitles(item.genre_ids, mType),
-            genre_ids: item.genre_ids || []
+            genre_ids: item.genre_ids || [],
+            vote_count: item.vote_count
         };
     }).filter(item => 
         item.posterPath && item.title && item.genre_ids.length > 0 &&
@@ -306,7 +310,7 @@ async function searchAndBlock(params) {
             const mType = params.media_type || "movie";
             const item = await Widget.tmdb.get(`/${mType}/${id}`, { params: { language: "zh-CN" } }).then(r => r.data || r);
             const success = addBlockedItem({ ...item, media_type: mType });
-            return [createMsg("info", success ? "屏蔽成功" : "已存在", item.title)];
+            return [createMsg("info", success ? "屏蔽成功" : "已存在", item.title || item.name)];
         } catch (e) { return [createMsg("error", "失败", e.message)]; }
     }
 
