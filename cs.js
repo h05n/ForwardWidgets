@@ -1,5 +1,5 @@
 // ===========================================
-// Forward Widget: 动画榜单 (No Chinese Anime)
+// Forward Widget: 动画榜单 (Origin Filter Only)
 // Version: 1.0.0
 // ===========================================
 
@@ -11,17 +11,17 @@ const CONFIG = {
     // 屏蔽配置
     BLOCK_GENRE: "10762", // 屏蔽儿童
     
-    // 标题关键词屏蔽 (保留这个作为辅助，防止有漏网的重制版)
-    FILTER_WORDS: ["3D", "动态漫", "动态漫画"]
+    // 辅助过滤
+    FILTER_WORDS: ["动态漫", "动态漫画"]
 };
 
 WidgetMetadata = {
-  id: "bangdan",
+  id: "bangdan", // 严格保留 ID 不变
   title: "动画榜单",
   description: "动画榜单",
   author: "，",
   site: "https://github.com/h05n/ForwardWidgets",
-  version: "1.0.0", // 锁死
+  version: "1.0.0", 
   requiredVersion: "0.0.1",
   detailCacheDuration: 60, 
   modules: [
@@ -122,14 +122,20 @@ async function moduleDiscover(args) {
         const results = res.results || [];
 
         return results
-            // 基础清洗
             .filter(item => item.name && item.poster_path)
             
-            // --- 核心修改：直接屏蔽国漫 ---
-            // 过滤掉所有源语言为中文(zh)的内容，彻底根除国产3D
-            .filter(item => item.original_language !== 'zh')
+            // --- 核心修改：仅使用产地过滤 ---
+            .filter(item => {
+                // 如果产地信息存在，且包含 "CN" (中国大陆)，则剔除
+                // 这样会保留 JP(日本), US(美国) 等所有非中国产地的动画
+                // 同时不再误杀 "zh" 语言的非国产内容（如果有的话）
+                if (item.origin_country && item.origin_country.includes('CN')) {
+                    return false;
+                }
+                return true;
+            })
             
-            // 辅助过滤：防止有部分漏网之鱼
+            // 辅助过滤：动态漫
             .filter(item => !CONFIG.FILTER_WORDS.some(word => item.name.includes(word)))
             
             .map(item => Render.card(item));
