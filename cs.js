@@ -54,7 +54,7 @@ WidgetMetadata = {
     },
     // ------------- 2. 搜索屏蔽模块 -------------
     {
-      title: "TMDB 搜索屏蔽",
+      title: "搜索屏蔽",
       description: "按影片名称或内容类型进行屏蔽",
       requiresWebView: false,
       functionName: "searchAndBlock",
@@ -76,7 +76,7 @@ WidgetMetadata = {
     },
     // ------------- 3. 屏蔽管理模块 -------------
     {
-      title: "TMDB 屏蔽管理",
+      title: "屏蔽管理",
       description: "查看和管理已屏蔽的内容",
       requiresWebView: false,
       functionName: "manageBlockedItems",
@@ -260,11 +260,11 @@ async function fetchTmdbBase(endpoint, params) {
     return filterBlockedItemsEnhanced(results);
 }
 
-// ================= 1. 按平台发现 (保留核心功能) =================
+// ================= 1. 按平台发现 =================
 async function tmdbDiscoverByNetwork(params = {}) {
     const sortBy = params.sort_by || "first_air_date.desc";
     
-    // 关键修复：如果 params.with_networks 为空（即选择了“全部”），强制使用国内平台ID列表
+    // 如果 params.with_networks 为空（即选择了“全部”），使用国内平台ID列表
     const networksToSearch = params.with_networks || CONSTANTS.DOMESTIC_IDS;
     
     const apiParams = {
@@ -286,7 +286,7 @@ async function tmdbDiscoverByNetwork(params = {}) {
     return await fetchTmdbBase('/discover/tv', apiParams);
 }
 
-// ================= 2. 搜索与屏蔽 (保留) =================
+// ================= 2. 搜索与屏蔽 =================
 async function searchAndBlock(params) {
     const { block_type, action, query, language = "zh-CN" } = params;
 
@@ -362,7 +362,7 @@ async function searchAndBlock(params) {
     } catch (e) { return [createMsg("error", "搜索失败", e.message)]; }
 }
 
-// ================= 3. 屏蔽管理 (保留) =================
+// ================= 3. 屏蔽管理 =================
 async function manageBlockedItems(params) {
     const { manage_type, action } = params;
 
