@@ -54,37 +54,29 @@ WidgetMetadata = {
         { name: "language", title: "语言", type: "language", value: "zh-CN" }
       ]
     },
-    // ------------- 2. 搜索屏蔽模块 -------------
+    // ------------- 2. 搜索屏蔽模块 (逻辑重构版) -------------
     {
       title: "搜索屏蔽",
-      description: "搜索获取ID，或通过ID/类型进行屏蔽",
+      description: "直接屏蔽名称匹配的第一个结果，或屏蔽指定类型",
       requiresWebView: false,
       functionName: "searchAndBlock",
       cacheDuration: 0,
       params: [
         {
-          name: "mode", title: "功能模式", type: "enumeration", value: "search",
+          name: "block_type", title: "屏蔽方式", type: "enumeration", value: "by_name",
           enumOptions: [
-            { title: "搜索影片", value: "search" },
-            { title: "屏蔽指定ID", value: "block_id" },
-            { title: "屏蔽指定类型", value: "block_genre" }
+            { title: "按影片名称屏蔽", value: "by_name" },
+            { title: "按内容类型屏蔽", value: "by_genre" }
           ]
         },
+        // 按名称屏蔽：直接输入，无需 belongTo，默认显示
         { 
-            name: "query", title: "影片名称", type: "input", value: "", placeholder: "例如：鬼灭之刃" 
+            name: "query", title: "影片名称", type: "input", value: "", placeholder: "输入名称，将自动屏蔽第一个搜索结果"
         },
-        { 
-            name: "tmdb_id", title: "输入TMDB ID", type: "input", value: "", placeholder: "从搜索结果中复制ID", 
-            belongTo: { paramName: "mode", value: ["block_id"] } 
-        },
-        { 
-            name: "media_type", title: "媒体类型", type: "enumeration", value: "tv", 
-            enumOptions: [{ title: "剧集", value: "tv" }, { title: "电影", value: "movie" }],
-            belongTo: { paramName: "mode", value: ["block_id"] }
-        },
+        // 按类型屏蔽
         { 
           name: "genre_id", title: "选择类型", type: "enumeration", value: "", 
-          belongTo: { paramName: "mode", value: ["block_genre"] },
+          belongTo: { paramName: "block_type", value: ["by_genre"] },
           enumOptions: [
             { title: "真人秀", value: "10764" }, { title: "脱口秀", value: "10767" }, { title: "综艺", value: "10764" },
             { title: "纪录片", value: "99" }, { title: "动作冒险", value: "10759" }, { title: "动画", value: "16" },
@@ -103,7 +95,7 @@ WidgetMetadata = {
     // ------------- 3. 屏蔽管理模块 -------------
     {
       title: "屏蔽管理",
-      description: "查看列表或通过ID解除屏蔽",
+      description: "查看列表或解除屏蔽",
       requiresWebView: false,
       functionName: "manageBlockedItems",
       cacheDuration: 0,
@@ -114,7 +106,6 @@ WidgetMetadata = {
         },
         {
           name: "action", title: "操作", type: "enumeration", value: "view",
-          // 已修改：去除了"(输入ID)"字样
           enumOptions: [
               { title: "查看列表", value: "view" }, 
               { title: "解除屏蔽", value: "unblock" }, 
@@ -124,7 +115,7 @@ WidgetMetadata = {
           ]
         },
         { 
-            name: "unblock_id", title: "输入解除ID", type: "input", value: "", placeholder: "输入要解封的ID",
+            name: "unblock_id", title: "解除ID", type: "input", value: "", placeholder: "请输入ID",
             belongTo: { paramName: "action", value: ["unblock"] } 
         },
         { 
@@ -316,50 +307,53 @@ async function tmdbDiscoverByNetwork(params = {}) {
 }
 
 async function searchAndBlock(params) {
-    const { mode, query, tmdb_id, media_type, genre_id, language = "zh-CN" } = params;
+    const { block_type, query, genre_id, language = "zh-CN" } = params;
 
-    if (mode === "block_genre") {
+    // 1. 类型屏蔽 (优先处理)
+    if (block_type === "by_genre") {
         if (!genre_id) return [createMsg("info", "请选择要屏蔽的类型")];
         const genreName = CONSTANTS.TMDB_GENRE_MAP[genre_id] || "未知类型";
         const success = addBlockedGenre(genreName, genre_id);
         return [createMsg("info", success ? "类型屏蔽成功" : "已存在", `类型: ${genreName}`)];
     }
 
-    if (mode === "block_id") {
-        const id = (tmdb_id || "").trim();
-        if (!/^\d+$/.test(id)) return [createMsg("error", "无效ID", "请输入纯数字ID")];
-        try {
-            const mType = media_type || "tv";
-            const item = await Widget.tmdb.get(`/${mType}/${id}`, { params: { language: "zh-CN" } }).then(r => r.data || r);
-            const success = addBlockedItem({ ...item, media_type: mType });
-            return [createMsg("info", success ? "屏蔽成功" : "已存在", item.title || item.name)];
-        } catch (e) { return [createMsg("error", "失败", "未找到对应ID的内容，请检查ID和类型")]; }
-    }
-
-    // 搜索模式
-    if (!query) return [createMsg("info", "请输入关键词")];
+    // 2. 名称屏蔽 (默认模式)
+    // 逻辑修正：只要有query就执行搜索+屏蔽第一项
+    if (!query) return [createMsg("info", "请输入影片名称")];
+    
     try {
         const res = await Widget.tmdb.get("/search/multi", { params: { query, language, page: 1 } });
         const results = (res.results || res.data?.results || [])
-            .filter(i => ["movie", "tv"].includes(i.media_type) && i.poster_path)
-            .slice(0, 20);
+            .filter(i => ["movie", "tv"].includes(i.media_type) && i.poster_path);
 
         if (!results.length) return [createMsg("info", "未找到结果")];
 
-        const blockedSet = getBlockedIdSet();
+        // 自动屏蔽第一个结果
+        const bestMatch = results[0];
+        
+        const success = addBlockedItem({
+            id: bestMatch.id,
+            media_type: bestMatch.media_type,
+            title: bestMatch.title || bestMatch.name,
+            poster_path: bestMatch.poster_path,
+            overview: bestMatch.overview,
+            vote_average: bestMatch.vote_average
+        });
+
+        const title = bestMatch.title || bestMatch.name;
+        const year = (bestMatch.release_date || bestMatch.first_air_date || '').slice(0, 4);
+        
         return [
-            createMsg("info", "搜索结果 (请复制ID去屏蔽)", `共找到 ${results.length} 条`),
-            ...results.map(i => {
-                const isB = blockedSet.has(String(i.id)) || blockedSet.has(`${i.id}_${i.media_type}`);
-                return {
-                    id: `search_${i.id}`, type: "info",
-                    title: `${isB ? "(已屏蔽) " : ""} ${i.title || i.name} (${(i.release_date || i.first_air_date || '').slice(0, 4)})`,
-                    description: `ID: ${i.id} | ${i.media_type === 'movie' ? '电影' : '剧集'}`,
-                    posterPath: `https://image.tmdb.org/t/p/w500${i.poster_path}`,
-                    mediaType: i.media_type
-                };
-            })
+            createMsg("info", success ? "屏蔽成功" : "已在黑名单", title + (year ? ` (${year})` : "")),
+            {
+                id: `blocked_${bestMatch.id}`, type: "info",
+                title: `${title}`,
+                description: `ID: ${bestMatch.id} | 已自动加入屏蔽列表`,
+                posterPath: `https://image.tmdb.org/t/p/w500${bestMatch.poster_path}`,
+                mediaType: bestMatch.media_type
+            }
         ];
+
     } catch (e) { return [createMsg("error", "搜索失败", e.message)]; }
 }
 
@@ -377,7 +371,7 @@ async function manageBlockedItems(params) {
 
     if (action === "unblock") {
         const id = (unblock_id || "").trim();
-        if (!id) return [createMsg("info", "请输入要解除的ID")];
+        if (!id) return [createMsg("info", "请输入ID")];
         if (manage_type === "genres") {
             return [createMsg("info", removeBlockedGenre(parseInt(id)) ? "类型解封成功" : "未找到该类型ID")];
         } else {
