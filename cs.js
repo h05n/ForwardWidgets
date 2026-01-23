@@ -42,10 +42,13 @@ WidgetMetadata = {
         },
         {
           name: "sort_by", title: "排序方式", type: "enumeration", value: "first_air_date.desc",
+          // 已恢复完整的 5 个排序选项
           enumOptions: [
             { title: "上映时间↓", value: "first_air_date.desc" },
+            { title: "上映时间↑", value: "first_air_date.asc" },
             { title: "人气最高", value: "popularity.desc" },
-            { title: "评分最高", value: "vote_average.desc" }
+            { title: "评分最高", value: "vote_average.desc" },
+            { title: "最多投票", value: "vote_count.desc" }
           ]
         },
         { name: "page", title: "页码", type: "page" },
@@ -97,7 +100,7 @@ WidgetMetadata = {
   ]
 };
 
-// ================= 常量定义 =================
+// ================= 常量与缓存 =================
 const CONSTANTS = {
     GENRE_KEY: "forward_blocked_genres",
     ITEM_KEY: "forward_blocked_items",
@@ -108,14 +111,11 @@ const CONSTANTS = {
         "西部": 37, "动作": 28, "冒险": 12, "历史": 36, "奇幻": 14, "恐怖": 27, "音乐": 10402,
         "爱情": 10749, "科幻": 878, "电视电影": 10770, "惊悚": 53, "战争": 10752
     },
-    // 定义国内主要平台的ID集合 (Tencent|iQiyi|Youku|Bilibili|MGTV)
     DOMESTIC_IDS: "2007|1330|1419|1605|1631",
-    // 筛选标准
     DOMESTIC_STD: { minVoteCount: 5 },
     DEFAULT_STD: { minVoteCount: 10 }
 };
 
-// ================= 缓存与存储 =================
 let cache = { genres: null, blockedIds: null, blockedGenres: null, blockedItems: null };
 
 function resetCache(keys = []) {
@@ -153,23 +153,19 @@ function getBlockedIdSet() {
     getBlockedItems().forEach(item => {
         set.add(String(item.id));
         set.add(`${item.id}_${item.media_type}`);
-        if (item.originalDoubanId) set.add(String(item.originalDoubanId));
     });
     return cache.blockedIds = set;
 }
 
-// ================= 核心过滤逻辑 =================
+// ================= 核心逻辑 =================
 function isBlocked(item) {
     if (!item?.id) return false;
     const idSet = getBlockedIdSet();
     const sid = String(item.id);
-    
-    // ID匹配
     if (idSet.has(sid)) return true;
     const mType = item.mediaType || item.media_type;
     if (mType && idSet.has(`${sid}_${mType}`)) return true;
     
-    // 类型匹配
     if (item.genre_ids && Array.isArray(item.genre_ids) && item.genre_ids.length > 0) {
         const blockedGids = new Set(getBlockedGenres().map(g => g.id));
         if (item.genre_ids.some(gid => blockedGids.has(gid))) return true;
@@ -181,7 +177,6 @@ function filterBlockedItemsEnhanced(items) {
     return Array.isArray(items) ? items.filter(item => !isBlocked(item)) : [];
 }
 
-// ================= 屏蔽操作 =================
 function addBlockedGenre(name, id) {
     const list = getBlockedGenres();
     if (list.some(g => g.id === id)) return false;
@@ -211,7 +206,6 @@ function removeBlockedItem(id, mediaType) {
     return setStorage(CONSTANTS.ITEM_KEY, list) && (resetCache(['blockedItems', 'blockedIds']) || true);
 }
 
-// ================= TMDB 基础函数 =================
 async function fetchTmdbGenres() {
     if (cache.genres) return cache.genres;
     const [m, t] = await Promise.all([
@@ -229,13 +223,11 @@ function getTmdbGenreTitles(ids, type) {
     return (ids || []).slice(0, 3).map(id => map[id]).filter(Boolean).join('•');
 }
 
-// 通用 TMDB 获取与处理
 async function fetchTmdbBase(endpoint, params) {
     const [data, _] = await Promise.all([
         Widget.tmdb.get(endpoint, { params }),
         fetchTmdbGenres()
     ]);
-
     const rawResults = data.results || [];
     const results = rawResults.map(item => {
         const mType = item.media_type || (item.title ? 'movie' : 'tv');
@@ -256,15 +248,12 @@ async function fetchTmdbBase(endpoint, params) {
         item.posterPath && item.title && item.genre_ids.length > 0 &&
         (!params['vote_count.gte'] || item.vote_count >= params['vote_count.gte'])
     );
-
     return filterBlockedItemsEnhanced(results);
 }
 
-// ================= 1. 按平台发现 =================
+// ================= 模块功能 =================
 async function tmdbDiscoverByNetwork(params = {}) {
     const sortBy = params.sort_by || "first_air_date.desc";
-    
-    // 如果 params.with_networks 为空（即选择了“全部”），使用国内平台ID列表
     const networksToSearch = params.with_networks || CONSTANTS.DOMESTIC_IDS;
     
     const apiParams = {
@@ -277,20 +266,16 @@ async function tmdbDiscoverByNetwork(params = {}) {
         'first_air_date.gte': params.air_status === 'upcoming' ? getBeijingDate() : undefined
     };
     
-    // 评分排序时的过滤
     if (sortBy === 'vote_average.desc') {
         const isDomestic = CONSTANTS.DOMESTIC_IDS.includes(String(networksToSearch));
         apiParams['vote_count.gte'] = isDomestic ? CONSTANTS.DOMESTIC_STD.minVoteCount : CONSTANTS.DEFAULT_STD.minVoteCount;
     }
-
     return await fetchTmdbBase('/discover/tv', apiParams);
 }
 
-// ================= 2. 搜索与屏蔽 =================
 async function searchAndBlock(params) {
     const { block_type, action, query, language = "zh-CN" } = params;
 
-    // 类型屏蔽
     if (block_type === "by_genre") {
         const name = (params.genre_name || "").trim().toLowerCase();
         if (!name) return [createMsg("info", "请输入类型名称")];
@@ -298,7 +283,6 @@ async function searchAndBlock(params) {
         const matches = Object.entries(CONSTANTS.TMDB_GENRE_MAP)
             .filter(([k]) => k.includes(name) || name.includes(k))
             .map(([n, id]) => ({ name: n, id }));
-
         if (!matches.length) return [createMsg("info", "未找到匹配类型")];
 
         if (action === "search_and_block") {
@@ -306,7 +290,6 @@ async function searchAndBlock(params) {
             matches.forEach(g => addBlockedGenre(g.name, g.id) && count++);
             return [createMsg("info", "操作完成", `新增屏蔽: ${count}个`)];
         }
-
         return [
             createMsg("info", "匹配类型", `找到 ${matches.length} 个类型`),
             ...matches.map(g => {
@@ -316,11 +299,9 @@ async function searchAndBlock(params) {
         ];
     }
 
-    // 手动 ID 屏蔽
     if (block_type === "manual_id") {
         const id = (params.tmdb_id || "").trim();
         if (!/^\d+$/.test(id)) return [createMsg("error", "无效ID")];
-        
         try {
             const mType = params.media_type || "movie";
             const item = await Widget.tmdb.get(`/${mType}/${id}`, { params: { language: "zh-CN" } }).then(r => r.data || r);
@@ -329,7 +310,6 @@ async function searchAndBlock(params) {
         } catch (e) { return [createMsg("error", "失败", e.message)]; }
     }
 
-    // 搜索屏蔽
     if (!query) return [createMsg("info", "请输入关键词")];
     try {
         const res = await Widget.tmdb.get("/search/multi", { params: { query, language, page: 1 } });
@@ -338,7 +318,6 @@ async function searchAndBlock(params) {
             .slice(0, 20);
 
         if (!results.length) return [createMsg("info", "未找到结果")];
-
         if (action === "search_and_block") {
             let count = 0;
             results.forEach(i => addBlockedItem(i) && count++);
@@ -362,7 +341,6 @@ async function searchAndBlock(params) {
     } catch (e) { return [createMsg("error", "搜索失败", e.message)]; }
 }
 
-// ================= 3. 屏蔽管理 =================
 async function manageBlockedItems(params) {
     const { manage_type, action } = params;
 
@@ -378,11 +356,9 @@ async function manageBlockedItems(params) {
     if (action === "unblock") {
         const id = (params.unblock_id || "").trim();
         if (!id) return [createMsg("info", "请输入ID")];
-        
         if (manage_type === "genres") {
             return [createMsg("info", removeBlockedGenre(parseInt(id)) ? "类型解封成功" : "失败")];
         } else {
-            // 尝试同时移除 movie 和 tv
             const r1 = removeBlockedItem(id, "movie");
             const r2 = removeBlockedItem(id, "tv");
             return [createMsg("info", (r1 || r2) ? "内容解封成功" : "未找到该内容")];
@@ -401,7 +377,6 @@ async function manageBlockedItems(params) {
         return [createMsg("info", "导入完成", `成功导入 ${count} 条`)];
     }
 
-    // 查看列表
     const list = manage_type === "genres" ? getBlockedGenres() : getBlockedItems();
     if (!list.length) return [createMsg("info", "列表为空")];
 
@@ -414,7 +389,6 @@ async function manageBlockedItems(params) {
     }));
 }
 
-// ================= 辅助函数 =================
 function getBeijingDate() {
     return new Date(Date.now() + 28800000).toISOString().split('T')[0];
 }
@@ -423,13 +397,11 @@ function createMsg(type, title, desc = "") {
     return { id: Math.random().toString(36), type, title, description: desc, posterPath: "", mediaType: "info" };
 }
 
-// Deeplink 处理
 async function loadDetail(link) {
     try {
         const [action, content] = link.split("://");
         const parts = (content || "").split("/");
         if (parts.length < 3) return { title: "错误", description: "链接格式无效" };
-        
         const [id, mType, encTitle] = parts;
         const title = decodeURIComponent(encTitle || "");
         
