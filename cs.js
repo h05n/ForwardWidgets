@@ -54,10 +54,10 @@ WidgetMetadata = {
         { name: "language", title: "语言", type: "language", value: "zh-CN" }
       ]
     },
-    // ------------- 2. 搜索屏蔽模块 -------------
+    // ------------- 2. 搜索屏蔽模块 (交互优化版) -------------
     {
       title: "搜索屏蔽",
-      description: "按影片名称或内容类型进行屏蔽",
+      description: "搜索内容或类型，点击结果即可屏蔽",
       requiresWebView: false,
       functionName: "searchAndBlock",
       cacheDuration: 0,
@@ -66,20 +66,32 @@ WidgetMetadata = {
           name: "block_type", title: "屏蔽类型", type: "enumeration", value: "by_name",
           enumOptions: [{ title: "按影片名称", value: "by_name" }, { title: "按内容类型", value: "by_genre" }, { title: "手动输入ID", value: "manual_id" }]
         },
-        {
-          name: "action", title: "操作模式", type: "enumeration", value: "search_only",
-          enumOptions: [{ title: "仅搜索", value: "search_only" }, { title: "搜索并屏蔽", value: "search_and_block" }]
+        // 优化点：类型名称改为下拉菜单
+        { 
+          name: "genre_id", title: "选择类型", type: "enumeration", value: "", 
+          belongTo: { paramName: "block_type", value: ["by_genre"] },
+          enumOptions: [
+            { title: "真人秀", value: "10764" }, { title: "脱口秀", value: "10767" }, { title: "综艺", value: "10764" },
+            { title: "纪录片", value: "99" }, { title: "动作冒险", value: "10759" }, { title: "动画", value: "16" },
+            { title: "喜剧", value: "35" }, { title: "犯罪", value: "80" }, { title: "剧情", value: "18" },
+            { title: "家庭", value: "10751" }, { title: "儿童", value: "10762" }, { title: "悬疑", value: "9648" },
+            { title: "新闻", value: "10763" }, { title: "科幻奇幻", value: "10765" }, { title: "肥皂剧", value: "10766" },
+            { title: "战争政治", value: "10768" }, { title: "西部", value: "37" }, { title: "动作", value: "28" },
+            { title: "冒险", value: "12" }, { title: "历史", value: "36" }, { title: "奇幻", value: "14" },
+            { title: "恐怖", value: "27" }, { title: "音乐", value: "10402" }, { title: "爱情", value: "10749" },
+            { title: "科幻", value: "878" }, { title: "电视电影", value: "10770" }, { title: "惊悚", value: "53" },
+            { title: "战争", value: "10752" }
+          ]
         },
-        { name: "query", title: "影片名称", type: "input", value: "", placeholder: "例如：鬼灭之刃" },
-        { name: "genre_name", title: "类型名称", type: "input", value: "", placeholder: "例如：真人秀" },
-        { name: "tmdb_id", title: "TMDB ID", type: "input", value: "", placeholder: "例如：550" },
-        { name: "media_type", title: "媒体类型", type: "enumeration", value: "tv", enumOptions: [{ title: "剧集", value: "tv" }, { title: "电影", value: "movie" }] }
+        { name: "query", title: "影片名称", type: "input", value: "", placeholder: "例如：鬼灭之刃", belongTo: { paramName: "block_type", value: ["by_name"] } },
+        { name: "tmdb_id", title: "TMDB ID", type: "input", value: "", placeholder: "例如：550", belongTo: { paramName: "block_type", value: ["manual_id"] } },
+        { name: "media_type", title: "媒体类型", type: "enumeration", value: "tv", enumOptions: [{ title: "剧集", value: "tv" }, { title: "电影", value: "movie" }], belongTo: { paramName: "block_type", value: ["manual_id"] } }
       ]
     },
-    // ------------- 3. 屏蔽管理模块 -------------
+    // ------------- 3. 屏蔽管理模块 (交互优化版) -------------
     {
       title: "屏蔽管理",
-      description: "查看和管理已屏蔽的内容",
+      description: "点击列表项即可解除屏蔽",
       requiresWebView: false,
       functionName: "manageBlockedItems",
       cacheDuration: 0,
@@ -90,9 +102,8 @@ WidgetMetadata = {
         },
         {
           name: "action", title: "操作", type: "enumeration", value: "view",
-          enumOptions: [{ title: "查看", value: "view" }, { title: "清空", value: "clear" }, { title: "取消屏蔽", value: "unblock" }, { title: "导出", value: "export" }, { title: "导入", value: "import" }]
+          enumOptions: [{ title: "查看 (点击解除)", value: "view" }, { title: "清空所有", value: "clear" }, { title: "导出配置", value: "export" }, { title: "导入配置", value: "import" }]
         },
-        { name: "unblock_id", title: "解除ID", type: "input", value: "", belongTo: { paramName: "action", value: ["unblock"] } },
         { name: "import_data", title: "导入数据", type: "input", value: "", belongTo: { paramName: "action", value: ["import"] } }
       ]
     }
@@ -103,12 +114,14 @@ WidgetMetadata = {
 const CONSTANTS = {
     GENRE_KEY: "forward_blocked_genres",
     ITEM_KEY: "forward_blocked_items",
+    // 这里的 MAP 仅用于反查名称，下拉菜单已硬编码在 Params 中
     TMDB_GENRE_MAP: {
-        "真人秀": 10764, "脱口秀": 10767, "综艺": 10764, "纪录片": 99, "动作冒险": 10759,
-        "动画": 16, "喜剧": 35, "犯罪": 80, "剧情": 18, "家庭": 10751, "儿童": 10762,
-        "悬疑": 9648, "新闻": 10763, "科幻奇幻": 10765, "肥皂剧": 10766, "战争政治": 10768,
-        "西部": 37, "动作": 28, "冒险": 12, "历史": 36, "奇幻": 14, "恐怖": 27, "音乐": 10402,
-        "爱情": 10749, "科幻": 878, "电视电影": 10770, "惊悚": 53, "战争": 10752
+        "10764": "真人秀", "10767": "脱口秀", "99": "纪录片", "10759": "动作冒险",
+        "16": "动画", "35": "喜剧", "80": "犯罪", "18": "剧情", "10751": "家庭",
+        "10762": "儿童", "9648": "悬疑", "10763": "新闻", "10765": "科幻奇幻",
+        "10766": "肥皂剧", "10768": "战争政治", "37": "西部", "28": "动作",
+        "12": "冒险", "36": "历史", "14": "奇幻", "27": "恐怖", "10402": "音乐",
+        "10749": "爱情", "878": "科幻", "10770": "电视电影", "53": "惊悚", "10752": "战争"
     },
     DOMESTIC_IDS: "2007|1330|1419|1605|1631",
     DOMESTIC_STD: { minVoteCount: 5 },
@@ -178,13 +191,14 @@ function filterBlockedItemsEnhanced(items) {
 
 function addBlockedGenre(name, id) {
     const list = getBlockedGenres();
-    if (list.some(g => g.id === id)) return false;
-    list.push({ id, name, description: `屏蔽"${name}"`, blocked_date: new Date().toISOString() });
+    const gid = String(id);
+    if (list.some(g => String(g.id) === gid)) return false;
+    list.push({ id: gid, name, description: `屏蔽"${name}"`, blocked_date: new Date().toISOString() });
     return setStorage(CONSTANTS.GENRE_KEY, list) && (resetCache(['blockedGenres']) || true);
 }
 
 function removeBlockedGenre(id) {
-    const list = getBlockedGenres().filter(g => g.id !== id);
+    const list = getBlockedGenres().filter(g => String(g.id) !== String(id));
     return setStorage(CONSTANTS.GENRE_KEY, list) && (resetCache(['blockedGenres']) || true);
 }
 
@@ -193,7 +207,6 @@ function addBlockedItem(item) {
     const sid = String(item.id);
     if (list.some(i => i.id === sid && i.media_type === item.media_type)) return false;
     
-    // 关键修正：确保剧集也能读取到标题 (item.name)
     const displayTitle = item.title || item.name || `ID:${sid}`;
     
     list.push({
@@ -278,31 +291,33 @@ async function tmdbDiscoverByNetwork(params = {}) {
 }
 
 async function searchAndBlock(params) {
-    const { block_type, action, query, language = "zh-CN" } = params;
+    const { block_type, query, genre_id, language = "zh-CN" } = params;
 
+    // 类型屏蔽 - 使用下拉菜单的 genre_id
     if (block_type === "by_genre") {
-        const name = (params.genre_name || "").trim().toLowerCase();
-        if (!name) return [createMsg("info", "请输入类型名称")];
+        if (!genre_id) return [createMsg("info", "请选择要屏蔽的类型")];
         
-        const matches = Object.entries(CONSTANTS.TMDB_GENRE_MAP)
-            .filter(([k]) => k.includes(name) || name.includes(k))
-            .map(([n, id]) => ({ name: n, id }));
-        if (!matches.length) return [createMsg("info", "未找到匹配类型")];
-
-        if (action === "search_and_block") {
-            let count = 0;
-            matches.forEach(g => addBlockedGenre(g.name, g.id) && count++);
-            return [createMsg("info", "操作完成", `新增屏蔽: ${count}个`)];
-        }
+        const genreName = CONSTANTS.TMDB_GENRE_MAP[genre_id] || "未知类型";
+        const isB = getBlockedGenres().some(bg => String(bg.id) === String(genre_id));
+        
+        // 关键：添加 link 属性
+        const link = isB 
+            ? `unblock_genre://${genre_id}/${encodeURIComponent(genreName)}` 
+            : `block_genre://${genre_id}/${encodeURIComponent(genreName)}`;
+            
         return [
-            createMsg("info", "匹配类型", `找到 ${matches.length} 个类型`),
-            ...matches.map(g => {
-                const isB = getBlockedGenres().some(bg => bg.id === g.id);
-                return createMsg("info", `${isB ? "已屏蔽" : "可屏蔽"} ${g.name}`, `ID: ${g.id}`);
-            })
+            createMsg("info", `🔍 ${genreName}`, `ID: ${genre_id}`),
+            {
+                id: `genre_${genre_id}`, type: "info",
+                title: `${isB ? "🚫 已屏蔽 (点击解封)" : "✅ 未屏蔽 (点击屏蔽)"}`,
+                description: isB ? "此类型已在黑名单中" : "点击加入黑名单",
+                posterPath: "", mediaType: "info",
+                link: link // 添加点击跳转链接
+            }
         ];
     }
 
+    // 手动 ID 屏蔽
     if (block_type === "manual_id") {
         const id = (params.tmdb_id || "").trim();
         if (!/^\d+$/.test(id)) return [createMsg("error", "无效ID")];
@@ -314,6 +329,7 @@ async function searchAndBlock(params) {
         } catch (e) { return [createMsg("error", "失败", e.message)]; }
     }
 
+    // 按名称搜索
     if (!query) return [createMsg("info", "请输入关键词")];
     try {
         const res = await Widget.tmdb.get("/search/multi", { params: { query, language, page: 1 } });
@@ -322,23 +338,21 @@ async function searchAndBlock(params) {
             .slice(0, 20);
 
         if (!results.length) return [createMsg("info", "未找到结果")];
-        if (action === "search_and_block") {
-            let count = 0;
-            results.forEach(i => addBlockedItem(i) && count++);
-            return [createMsg("info", "操作完成", `新增屏蔽: ${count}个`)];
-        }
 
         const blockedSet = getBlockedIdSet();
         return [
-            createMsg("info", "搜索结果", `找到 ${results.length} 个结果`),
+            createMsg("info", "搜索结果 (点击屏蔽)", `找到 ${results.length} 个结果`),
             ...results.map(i => {
                 const isB = blockedSet.has(String(i.id)) || blockedSet.has(`${i.id}_${i.media_type}`);
+                const title = i.title || i.name;
                 return {
                     id: `search_${i.id}`, type: "info",
-                    title: `${isB ? "已屏蔽 " : ""} ${i.title || i.name} (${(i.release_date || i.first_air_date || '').slice(0, 4)})`,
-                    description: `ID: ${i.id} | 评分: ${i.vote_average}`,
+                    title: `${isB ? "🚫" : "✅"} ${title} (${(i.release_date || i.first_air_date || '').slice(0, 4)})`,
+                    description: `ID: ${i.id} | 评分: ${i.vote_average} | ${isB ? "已屏蔽" : "点击屏蔽"}`,
                     posterPath: `https://image.tmdb.org/t/p/w500${i.poster_path}`,
-                    mediaType: i.media_type
+                    mediaType: i.media_type,
+                    // 关键：添加点击跳转链接
+                    link: isB ? "" : `block://${i.id}/${i.media_type}/${encodeURIComponent(title)}`
                 };
             })
         ];
@@ -357,18 +371,6 @@ async function manageBlockedItems(params) {
         return [createMsg("info", "所有屏蔽已清空")];
     }
 
-    if (action === "unblock") {
-        const id = (params.unblock_id || "").trim();
-        if (!id) return [createMsg("info", "请输入ID")];
-        if (manage_type === "genres") {
-            return [createMsg("info", removeBlockedGenre(parseInt(id)) ? "类型解封成功" : "失败")];
-        } else {
-            const r1 = removeBlockedItem(id, "movie");
-            const r2 = removeBlockedItem(id, "tv");
-            return [createMsg("info", (r1 || r2) ? "内容解封成功" : "未找到该内容")];
-        }
-    }
-
     if (action === "export") {
         const ids = getBlockedItems().map(i => i.id).join(',');
         return [createMsg("info", "导出配置", ids || "无数据")];
@@ -381,16 +383,33 @@ async function manageBlockedItems(params) {
         return [createMsg("info", "导入完成", `成功导入 ${count} 条`)];
     }
 
+    // 查看模式（支持点击解封）
     const list = manage_type === "genres" ? getBlockedGenres() : getBlockedItems();
     if (!list.length) return [createMsg("info", "列表为空")];
 
-    return list.sort((a, b) => new Date(b.blocked_date) - new Date(a.blocked_date)).map(i => ({
-        id: `b_${i.id}`, type: "info",
-        title: `${i.name || i.title}`,
-        description: `ID: ${i.id} | Time: ${new Date(i.blocked_date).toLocaleDateString()}`,
-        posterPath: i.poster_path ? `https://image.tmdb.org/t/p/w500${i.poster_path}` : "",
-        mediaType: manage_type === "genres" ? "genre" : i.media_type
-    }));
+    // 排序
+    const sortedList = list.sort((a, b) => new Date(b.blocked_date) - new Date(a.blocked_date));
+
+    return sortedList.map(i => {
+        if (manage_type === "genres") {
+            return {
+                id: `b_g_${i.id}`, type: "info",
+                title: `🚫 ${i.name}`,
+                description: `ID: ${i.id} | 点击解除屏蔽`,
+                posterPath: "", mediaType: "info",
+                link: `unblock_genre://${i.id}/${encodeURIComponent(i.name)}`
+            };
+        } else {
+            return {
+                id: `b_${i.id}`, type: "info",
+                title: `${i.title || i.name}`,
+                description: `ID: ${i.id} | Time: ${new Date(i.blocked_date).toLocaleDateString()} | 点击解封`,
+                posterPath: i.poster_path ? `https://image.tmdb.org/t/p/w500${i.poster_path}` : "",
+                mediaType: i.media_type,
+                link: `unblock://${i.id}/${i.media_type}/${encodeURIComponent(i.title || i.name)}`
+            };
+        }
+    });
 }
 
 function getBeijingDate() {
@@ -401,23 +420,44 @@ function createMsg(type, title, desc = "") {
     return { id: Math.random().toString(36), type, title, description: desc, posterPath: "", mediaType: "info" };
 }
 
+// Deeplink 处理逻辑 - 负责响应点击
 async function loadDetail(link) {
     try {
-        const [action, content] = link.split("://");
-        const parts = (content || "").split("/");
-        if (parts.length < 3) return { title: "错误", description: "链接格式无效" };
-        const [id, mType, encTitle] = parts;
-        const title = decodeURIComponent(encTitle || "");
+        const [scheme, content] = link.split("://");
         
-        if (action === "block") {
+        // 屏蔽内容
+        if (scheme === "block") {
+            const [id, mType, encTitle] = content.split("/");
+            const title = decodeURIComponent(encTitle || "");
             const item = await Widget.tmdb.get(`/${mType}/${id}`, { params: { language: "zh-CN" } }).then(r => r.data || r);
             const ok = addBlockedItem({ ...item, media_type: mType });
-            return { title: ok ? "已屏蔽" : "已存在", description: `${title} 已加入黑名单` };
+            return { title: ok ? "✅ 已屏蔽" : "ℹ️ 已存在", description: `${title} 已加入黑名单，刷新列表后消失` };
         } 
-        if (action === "unblock") {
+        
+        // 解封内容
+        if (scheme === "unblock") {
+            const [id, mType, encTitle] = content.split("/");
+            const title = decodeURIComponent(encTitle || "");
             const ok = removeBlockedItem(id, mType);
-            return { title: ok ? "已解封" : "失败", description: `${title} 已移出黑名单` };
+            return { title: ok ? "✅ 已解封" : "❌ 失败", description: `${title} 已移出黑名单` };
         }
-    } catch (e) { return { title: "错误", description: e.message }; }
+
+        // 屏蔽类型
+        if (scheme === "block_genre") {
+            const [id, encName] = content.split("/");
+            const name = decodeURIComponent(encName || "");
+            const ok = addBlockedGenre(name, id);
+            return { title: ok ? "✅ 类型已屏蔽" : "ℹ️ 已存在", description: `${name} 类型内容将不再显示` };
+        }
+
+        // 解封类型
+        if (scheme === "unblock_genre") {
+            const [id, encName] = content.split("/");
+            const name = decodeURIComponent(encName || "");
+            const ok = removeBlockedGenre(id);
+            return { title: ok ? "✅ 类型已解封" : "❌ 失败", description: `${name} 类型已恢复显示` };
+        }
+
+    } catch (e) { return { title: "❌ 错误", description: e.message }; }
     return { title: "未知操作", description: "" };
 }
