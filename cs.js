@@ -1,6 +1,6 @@
 // ===========================================
-// Forward Widget: 动画榜单 (Domestic Anime v3.0)
-// Version: 3.0.0 (Ultimate Refactor)
+// Forward Widget: 动画榜单 (Domestic Anime v4.0)
+// Version: 4.0.0 (Released Only & Page Fix)
 // Author: Optimized by Gemini
 // ===========================================
 
@@ -13,7 +13,7 @@ const CONFIG = {
     // 存储键名
     KEY_BLOCK_ITEMS: "fw_anime_block_items",
     KEY_BLOCK_GENRES: "fw_anime_block_genres",
-    // 二次元题材映射 (Human Readable Mapping)
+    // 二次元题材映射
     GENRE_MAP: {
         "10759": "热血 / 战斗",    
         "10765": "奇幻 / 异世界",  
@@ -28,12 +28,12 @@ const CONFIG = {
 
 // ================= 元数据定义 =================
 WidgetMetadata = {
-  id: "anime_rank_v3",
+  id: "anime_rank_v4",
   title: "动画榜单",
-  description: "国内平台动画专用榜单 (v3.0)",
+  description: "国内平台动画专用榜单 (v4.0 纯净版)",
   author: "ForwardUser",
   site: "https://github.com/h05n/ForwardWidgets",
-  version: "3.0.0",
+  version: "4.0.0",
   requiredVersion: "0.0.1",
   detailCacheDuration: 0, 
   modules: [
@@ -42,7 +42,7 @@ WidgetMetadata = {
     // ------------------------------------------------
     {
       title: "动画榜单",
-      description: "浏览国内平台的动画番剧",
+      description: "浏览国内平台已开播的动画",
       requiresWebView: false,
       functionName: "moduleDiscover",
       cacheDuration: 3600,
@@ -71,21 +71,12 @@ WidgetMetadata = {
             { title: "战争 / 机战", value: "10768" }
           ]
         },
+        // 修正：移除了“连载状态”选项，底层逻辑默认只查“已开播”
         {
-          name: "status", title: "连载状态", type: "enumeration", value: "released",
+          name: "sort", title: "排序方式", type: "enumeration", value: "first_air_date.desc",
           enumOptions: [
-            { title: "已开播 (看最新)", value: "released" },
-            { title: "未开播 (看预告)", value: "upcoming" },
-            { title: "全部", value: "" }
-          ]
-        },
-        // 这里的排序值只是默认值，代码中会根据 status 智能调整
-        {
-          name: "sort", title: "排序方式", type: "enumeration", value: "smart",
-          enumOptions: [
-            { title: "智能排序 (推荐)", value: "smart" },
-            { title: "时间倒序 (新→旧)", value: "first_air_date.desc" },
-            { title: "时间正序 (旧→新)", value: "first_air_date.asc" },
+            { title: "时间倒序 (看最新)", value: "first_air_date.desc" },
+            { title: "时间正序 (补老番)", value: "first_air_date.asc" },
             { title: "人气最高", value: "popularity.desc" },
             { title: "评分最高", value: "vote_average.desc" }
           ]
@@ -94,7 +85,7 @@ WidgetMetadata = {
       ]
     },
     // ------------------------------------------------
-    // 模块 2: 极速屏蔽 (Quick Block)
+    // 模块 2: 极速屏蔽
     // ------------------------------------------------
     {
       title: "搜索屏蔽",
@@ -131,7 +122,7 @@ WidgetMetadata = {
       ]
     },
     // ------------------------------------------------
-    // 模块 3: 屏蔽管理 (Manager)
+    // 模块 3: 屏蔽管理
     // ------------------------------------------------
     {
       title: "屏蔽管理",
@@ -169,7 +160,7 @@ WidgetMetadata = {
 
 // ================= 核心架构 (Core) =================
 
-// 1. 渲染卫士 (Render Guard) - 防止白屏
+// 1. 渲染卫士 (Render Guard)
 const Render = {
     card: (item) => ({
         id: String(item.id),
@@ -181,7 +172,6 @@ const Render = {
         releaseDate: item.first_air_date || item.release_date,
         mediaType: "tv"
     }),
-    
     info: (title, desc, poster = "") => ({
         id: "msg_" + Math.random().toString(36).substr(2, 9),
         type: "info", 
@@ -192,7 +182,7 @@ const Render = {
     })
 };
 
-// 2. 数据存储层 (Storage Layer)
+// 2. 数据存储层 (Storage)
 const DB = {
     get: (key) => {
         try {
@@ -214,7 +204,7 @@ const DB = {
     }
 };
 
-// 3. 业务逻辑层 (Service Layer)
+// 3. 业务逻辑层 (Service)
 const Service = {
     isBlocked: (item, blockSet, blockGenres) => {
         if (!item || !item.id) return true;
@@ -225,13 +215,11 @@ const Service = {
         }
         return false;
     },
-    
-    // 关键修复：获取北京时间 (UTC+8) 的日期字符串 YYYY-MM-DD
-    getBeijingDateStr: (offsetDays = 0) => {
+    // 获取北京时间 (UTC+8) YYYY-MM-DD
+    getBeijingDateStr: () => {
         const d = new Date();
         const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
-        const bjTime = new Date(utc + (3600000 * 8)); // 北京时间
-        bjTime.setDate(bjTime.getDate() + offsetDays);
+        const bjTime = new Date(utc + (3600000 * 8)); 
         return bjTime.toISOString().split('T')[0];
     }
 };
@@ -239,35 +227,28 @@ const Service = {
 // ================= 模块实现 =================
 
 /**
- * 模块 1: 动画发现
+ * 模块 1: 动画发现 (纯净版)
+ * 逻辑：修正页码0问题，只看已开播
  */
 async function moduleDiscover(args) {
-    const { platform, genre, status, sort, page } = args;
+    const { platform, genre, sort, page } = args;
 
-    // 1. 智能计算日期界限 (北京时间)
-    const todayStr = Service.getBeijingDateStr(0);      // 今天
-    const tomorrowStr = Service.getBeijingDateStr(1);   // 明天
+    // 关键修正 1: 页码防呆处理，锁定最小值为 1
+    const safePage = Math.max(1, parseInt(page) || 1);
 
-    // 2. 智能排序逻辑
-    let finalSort = sort;
-    if (sort === 'smart') {
-        if (status === 'upcoming') finalSort = 'first_air_date.asc'; // 未开播：按时间正序 (先看明天要播的)
-        else finalSort = 'first_air_date.desc'; // 其他：按时间倒序 (先看最新的)
-    }
+    // 关键修正 2: 强制只查“已开播” (<= 北京时间今天)
+    const todayStr = Service.getBeijingDateStr();
 
-    // 3. 构建 TMDB 参数
     const apiParams = {
         language: 'zh-CN',
-        page: page || 1,
-        sort_by: finalSort,
+        page: safePage,
+        sort_by: sort || 'first_air_date.desc',
         with_networks: platform || CONFIG.CN_NETWORKS,
         with_genres: genre ? `${CONFIG.BASE_GENRE},${genre}` : CONFIG.BASE_GENRE,
-        // 关键逻辑：严格的日期界限
-        'first_air_date.lte': status === 'released' ? todayStr : undefined,    // <= 今天
-        'first_air_date.gte': status === 'upcoming' ? tomorrowStr : undefined  // >= 明天
+        'first_air_date.lte': todayStr // 锁死：不展示未来未开播的内容
     };
 
-    if (finalSort === 'vote_average.desc') apiParams['vote_count.gte'] = 10;
+    if (sort === 'vote_average.desc') apiParams['vote_count.gte'] = 10;
 
     try {
         const res = await Widget.tmdb.get('/discover/tv', { params: apiParams });
