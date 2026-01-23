@@ -1,24 +1,14 @@
 // ===========================================
-// Forward Widget: 全球日漫榜 (Full Interface)
-// Version: 4.4.2
+// Forward Widget: 全球日漫榜 (Spec Compliance)
+// Version: 4.4.3
 // ===========================================
 
-const CONFIG = {
-    // 聚合 ID 映射
-    CN_CORE: "1605|2007|1330", // B站, 腾讯, 爱奇艺
-    INTL_CORE: "213|2739|1112|4595", // Netflix, Disney+, Crunchyroll, dAnime
-    GLOBAL_ALL: "1605|2007|1330|1419|1631|213|2739|1112|4595|1857",
-    
-    BASE_GENRE: "16", 
-    BLOCK_GENRE: "10762" 
-};
-
 WidgetMetadata = {
-  id: "bangdan_global_v4", 
+  id: "bangdan_global_pro", 
   title: "日漫榜单",
   description: "聚合全球核心平台的纯净日漫榜单",
   author: "Gemini",
-  version: "4.4.2", 
+  version: "4.4.3", 
   detailCacheDuration: 60, 
   modules: [
     {
@@ -33,15 +23,13 @@ WidgetMetadata = {
             { title: "全部 (全球聚合)", value: "ALL" }, 
             { title: "国内聚合 (三大巨头)", value: "CN" },
             { title: "国外聚合 (四大巨头)", value: "INTL" },
-            // --- 国内单选 ---
             { title: "├ 哔哩哔哩", value: "1605" },
             { title: "├ 腾讯视频", value: "2007" },
-            { title: "└ 爱奇艺", value: "1330" }, // 补全爱奇艺
-            // --- 国外单选 ---
+            { title: "└ 爱奇艺", value: "1330" },
             { title: "├ Netflix", value: "213" },
             { title: "├ Disney+", value: "2739" },
-            { title: "├ Crunchyroll", value: "1112" }, // 补全 Crunchyroll
-            { title: "└ d Anime Store", value: "4595" }  // 补全 dAnime
+            { title: "├ Crunchyroll", value: "1112" },
+            { title: "└ d Anime Store", value: "4595" }
           ]
         },
         {
@@ -67,7 +55,7 @@ WidgetMetadata = {
   ]
 };
 
-// ================= 核心工具 =================
+// --- 逻辑实现部分 ---
 
 const Render = {
     card: (item) => ({
@@ -89,24 +77,21 @@ const Render = {
     })
 };
 
-const getBeijingToday = () => {
-    const d = new Date();
-    const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
-    const bjTime = new Date(utc + (3600000 * 8)); 
-    return bjTime.toISOString().split('T')[0];
-};
-
-// ================= 模块实现 =================
-
 async function moduleDiscover(args) {
     const { platform, genre, page_num } = args;
     const p = parseInt(page_num) || 1;
     
-    // 映射逻辑
-    let networkIds = platform;
-    if (platform === "ALL") networkIds = CONFIG.GLOBAL_ALL;
-    if (platform === "CN") networkIds = CONFIG.CN_CORE;
-    if (platform === "INTL") networkIds = CONFIG.INTL_CORE;
+    // 映射平台 ID 字符串
+    let networkIds = "";
+    if (platform === "ALL") {
+        networkIds = "1605|2007|1330|1419|1631|213|2739|1112|4595|1857";
+    } else if (platform === "CN") {
+        networkIds = "1605|2007|1330";
+    } else if (platform === "INTL") {
+        networkIds = "213|2739|1112|4595";
+    } else {
+        networkIds = platform;
+    }
 
     try {
         const res = await Widget.tmdb.get('/discover/tv', { 
@@ -115,10 +100,10 @@ async function moduleDiscover(args) {
                 page: p,
                 sort_by: 'popularity.desc', 
                 with_networks: networkIds,
-                with_genres: genre ? `${CONFIG.BASE_GENRE},${genre}` : CONFIG.BASE_GENRE,
+                with_genres: genre ? "16," + genre : "16",
                 with_original_language: 'ja', 
-                without_genres: CONFIG.BLOCK_GENRE, 
-                'first_air_date.lte': getBeijingToday()
+                without_genres: "10762", 
+                'first_air_date.lte': new Date().toISOString().split('T')[0]
             }
         });
         
