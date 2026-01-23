@@ -1,9 +1,9 @@
 WidgetMetadata = {
-  id: "bilibili.bangumi.top100.stable", // 全新 ID 避开冲突
-  title: "B站番剧榜",
-  version: "1.0.0",
+  id: "bilibili.rank.official.style", 
+  title: "B站番剧排行",
+  version: "1.2.0",
   requiredVersion: "0.0.1",
-  description: "仅保留排行榜，支持 100 条数据，修复数据缺失报错",
+  description: "完全对齐官方分页逻辑，强制匹配 TMDB 高清海报",
   author: "Forward",
   site: "https://www.bilibili.com/anime/",
   modules: [
@@ -14,7 +14,7 @@ WidgetMetadata = {
       params: [
         {
           name: "page",
-          title: "选择排名分页",
+          title: "排名分页 (1-100)",
           type: "enumeration",
           enumOptions: [
             { title: "01 - 20 名", value: "1" },
@@ -29,84 +29,75 @@ WidgetMetadata = {
   ]
 };
 
-// --- 请务必填写你的真实 TMDB API KEY ---
+// --- 请填写你的 API KEY ---
 const TMDB_API_KEY = "cf2190683e55fad0f978c719d0bc1c68"; 
 
 /**
- * 标题清洗：提升匹配精度
+ * 官方标准清洗逻辑：移除干扰项
  */
 function clean(t) {
   return t ? t.replace(/\s*第[一二三四五六七八九十\d]+[季期]/g, "").replace(/[\(（].*?[\)）]/g, "").trim() : "";
 }
 
 /**
- * 获取 TMDB 数据：强制使用 search/tv 以过滤真人电影
+ * TMDB 匹配：仅返回匹配成功的项，确保无 B站 原图
  */
-async function fetchTmdb(item) {
+async function fetchWithTmdb(item) {
   if (!TMDB_API_KEY || TMDB_API_KEY === "请自行填写") return null;
   try {
     const q = clean(item.title);
     const url = `https://api.themoviedb.org/3/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(q)}&language=zh-CN`;
     const res = await Widget.http.get(url);
     const m = res.data?.results?.[0];
-    
-    // 如果 TMDB 没搜到，我们返回一个基础对象，防止 App 报“数据缺失”
-    if (!m) {
+
+    // 严选逻辑：只要没有 TMDB 封面就不要
+    if (m && m.poster_path) {
       return {
-        id: "bili_" + (item.season_id || item.ss_id),
+        id: m.id.toString(), // 必须是字符串 ID
         type: "bangumi",
         title: item.title,
-        description: item.desc || "暂无简介",
-        posterPath: item.cover || "", // 兜底使用 B站 封面
-        hasTmdb: false,
-        seasonInfo: item.index_show || "",
+        description: m.overview || "",
+        posterPath: `https://image.tmdb.org/t/p/w500${m.poster_path}`,
+        tmdbInfo: { id: m.id.toString(), mediaType: "tv" },
+        hasTmdb: true,
+        seasonInfo: `⭐${item.rating || 'N/A'} | ${item.index_show || ''}`,
         link: `https://www.bilibili.com/bangumi/play/ss${item.season_id || item.ss_id}`
       };
     }
-
-    // 成功匹配到 TMDB
-    return {
-      id: m.id.toString(),
-      type: "bangumi",
-      title: item.title,
-      description: m.overview || item.desc || "暂无简介",
-      posterPath: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : (item.cover || ""),
-      backdropPath: m.backdrop_path ? `https://image.tmdb.org/t/p/original${m.backdrop_path}` : "",
-      tmdbInfo: { id: m.id.toString(), mediaType: "tv" },
-      hasTmdb: true,
-      seasonInfo: `⭐${item.rating || 'N/A'} | ${item.index_show || ''}`,
-      link: `https://www.bilibili.com/bangumi/play/ss${item.season_id || item.ss_id}`
-    };
-  } catch (e) {
-    return null; 
-  }
+  } catch (e) { return null; }
+  return null;
 }
 
 /**
- * 核心逻辑：获取并处理数据
+ * 模块入口：对齐官方参数解析方式
  */
 async function popularRank(params) {
   try {
-    const page = parseInt(params.page || "1");
-    const start = (page - 1) * 20;
+    // 官方风格的分页处理
+    const pageStr = params && params.page ? params.page : "1";
+    const page = parseInt(pageStr);
+    const pageSize = 20;
+    const start = (page - 1) * pageSize;
 
-    // 获取 B站 排行榜
+    // 获取 B站 排行榜 (3日榜)
     const res = await Widget.http.get("https://api.bilibili.com/pgc/season/rank/web/list?season_type=1&day=3", {
       headers: { "Referer": "https://www.bilibili.com/" }
     });
-    
-    // 多层级解析确保获取到列表
-    const list = res.data?.result?.list || res.data?.data?.list || [];
-    if (list.length === 0) return [];
 
-    const pageItems = list.slice(start, start + 20);
+    // 多路径解析 B站 数据，防止空结果
+    let rawList = [];
+    if (res.data) {
+      rawList = res.data.result?.list || res.data.data?.list || res.data.list || [];
+    }
 
-    // 并行处理当前页 20 条数据
-    const results = await Promise.all(pageItems.map(item => fetchTmdb(item)));
+    if (rawList.length === 0) return [];
+
+    // 截取当前页并并发匹配
+    const pageItems = rawList.slice(start, start + pageSize);
+    const results = await Promise.all(pageItems.map(item => fetchWithTmdb(item)));
     
-    // 最终过滤掉 null 并返回
-    const finalResults = results.filter(i => i !== null);
-    return finalResults;
+    // 严格过滤掉匹配失败（无高清封面）的项
+    return results.filter(i => i !== null);
 
   } catch (e) {
     return [];
