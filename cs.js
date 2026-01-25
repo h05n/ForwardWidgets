@@ -4,16 +4,19 @@ var WidgetMetadata = {
   version: "1.0.0",
   requiredVersion: "0.0.1",
   description: "从接口中获取弹幕",
-  author: "User",
+  author: "，",
   site: "https://github.com/h05n/ForwardWidgets",
   globalParams: [
     {
       name: "ch_convert_mode",
       title: "弹幕简繁转换",
       type: "enumeration",
-      values: ["1", "2", "0"],
-      entries: ["简体", "繁体", "原样(不转换)"],
-      value: "1"
+      value: "1",
+      enumOptions: [
+        { title: "简体", value: "1" },
+        { title: "繁体", value: "2" },
+        { title: "原样(不转换)", value: "0" }
+      ]
     },
     {
       name: "server",
