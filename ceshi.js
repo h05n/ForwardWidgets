@@ -1,6 +1,20 @@
+/**
+ * 弹幕示例模块
+ * 给 module 指定 type 为 danmu 后，默认会携带以下参数：
+ * tmdbId: TMDB ID，Optional
+ * type: 类型，tv | movie
+ * title: 标题
+ * season: 季，电影时为空
+ * episode: 集，电影时为空
+ * link: 链接，Optional
+ * videoUrl: 视频链接，Optional
+ * commentId: 弹幕ID，Optional。在搜索到弹幕列表后实际加载时会携带
+ * animeId: 动漫ID，Optional。在搜索到动漫列表后实际加载时会携带
+ *
+ */
 var WidgetMetadata = {
   id: "forward.danmu_api",
-  title: "自定义弹幕",
+  title: "简繁弹幕",
   version: "1.0.0",
   requiredVersion: "0.0.1",
   description: "从接口中获取弹幕",
@@ -12,6 +26,7 @@ var WidgetMetadata = {
       title: "弹幕简繁转换",
       type: "enumeration",
       value: "1",
+      // 修复：Forward 要求枚举使用 enumOptions 数组
       enumOptions: [
         { title: "简体", value: "1" },
         { title: "繁体", value: "2" },
@@ -110,6 +125,9 @@ var WidgetMetadata = {
   ],
 };
 
+// 全局缓存映射表，避免重复下载
+let _s2tMap = null;
+
 function normalizeServer(s) {
   if (!s || typeof s !== "string") return "";
   let x = s.trim();
@@ -149,6 +167,54 @@ async function safeGet(url, options) {
   } catch (e) {
     return { ok: false, error: e && e.message ? e.message : String(e) };
   }
+}
+
+// 核心精简逻辑：远程获取繁体映射表并转换
+async function processConversion(list, mode) {
+  if (!list || list.length === 0) return list;
+  
+  // 模式2为繁体，如果映射表未加载，则去 CDN 下载
+  if (mode === "2") {
+    if (!_s2tMap) {
+      try {
+        // 使用 OpenCC 标准映射表 (GitHub/jsDelivr CDN)
+        const res = await Widget.http.get("https://cdn.jsdelivr.net/gh/BYVoid/OpenCC@master/data/dictionary/STCharacters.txt");
+        if (res && res.data) {
+          _s2tMap = {};
+          const lines = res.data.split('\n');
+          for (let i = 0; i < lines.length; i++) {
+            // 格式：简体 [空格/Tab] 繁体
+            const parts = lines[i].trim().split(/\s+/);
+            if (parts.length >= 2) {
+              _s2tMap[parts[0]] = parts[1];
+            }
+          }
+        }
+      } catch (e) {
+        console.error("下载简繁映射表失败", e);
+        return list; // 下载失败则不转换，直接返回
+      }
+    }
+
+    // 执行转换
+    if (_s2tMap) {
+      return list.map(item => {
+        // 自动识别常见的文本字段进行转换
+        if (item.m) item.m = convertText(item.m, _s2tMap);
+        if (item.text) item.text = convertText(item.text, _s2tMap);
+        if (item.message) item.message = convertText(item.message, _s2tMap);
+        return item;
+      });
+    }
+  }
+  
+  return list;
+}
+
+function convertText(str, map) {
+  if (typeof str !== 'string') return str;
+  // 逐字映射，找不到则保留原字
+  return str.split('').map(char => map[char] || char).join('');
 }
 
 async function searchDanmu(params) {
@@ -337,6 +403,7 @@ async function getCommentsById(params) {
     "User-Agent": "ForwardWidgets/1.0.0",
   };
 
+  // 保留参数传递，万一有的服务器支持呢
   const tasks = servers.map((server) =>
     safeGet(`${server}/api/v2/comment/${commentId}?withRelated=true&chConvert=${convertMode}`, { headers })
   );
@@ -375,12 +442,18 @@ async function getCommentsById(params) {
 
   if (!base) return null;
 
+  // 统一字段并执行本地转换（如果API未处理）
+  let finalDanmakus = danmakus;
+  
+  // 执行本地转换逻辑
+  finalDanmakus = await processConversion(finalDanmakus, convertMode);
+
   if (Array.isArray(base.danmakus)) {
-    base.danmakus = danmakus;
+    base.danmakus = finalDanmakus;
   } else if (Array.isArray(base.comments)) {
-    base.comments = danmakus;
+    base.comments = finalDanmakus;
   } else {
-    base.danmakus = danmakus;
+    base.danmakus = finalDanmakus;
   }
 
   return base;
