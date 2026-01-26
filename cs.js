@@ -1,11 +1,11 @@
 WidgetMetadata = {
-  id: "forward.tmdb",
+  id: "tmdb",
   title: "TMDB",
   version: "1.0.4",
   requiredVersion: "0.0.1",
   description: "获取 TMDB 的榜单数据",
-  author: "Forward",
-  site: "https://github.com/InchStudio/ForwardWidgets",
+  author: "，",
+  site: "https://github.com/h05n/ForwardWidgets",
   modules: [
     {
       id: "nowPlaying",
