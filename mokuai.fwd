@@ -1,0 +1,46 @@
+{
+  "title": "模块",
+  "description": "作者：，",
+  "icon": "https://github.com/h05n/ForwardWidgets/raw/main/图标库/自用1.png",
+  "widgets": [
+    {
+      "id": "danmu",
+      "title": "通用弹幕",
+      "description": "通用弹幕",
+      "requiredVersion": "0.0.1",
+      "version": "1.0.0",
+      "author": "，",
+      "url": "{
+  "title": "弹幕模块",
+  "description": "作者：，",
+  "icon": "https://github.com/h05n/ForwardWidgets/raw/main/图标库/自用1.png",
+  "widgets": [
+    {
+      "id": "danmu",
+      "title": "通用弹幕",
+      "description": "通用弹幕",
+      "requiredVersion": "0.0.1",
+      "version": "1.0.0",
+      "author": "，",
+      "url": "{
+  "title": "弹幕模块",
+  "description": "作者：，",
+  "icon": "https://github.com/h05n/ForwardWidgets/raw/main/图标库/自用1.png",
+  "widgets": [
+    {
+      "id": "danmu",
+      "title": "通用弹幕",
+      "description": "通用弹幕",
+      "requiredVersion": "0.0.1",
+      "version": "1.0.0",
+      "author": "，",
+      "url": "https://github.com/h05n/danmu/raw/main/dist/danmu.js"
+    }
+  ]
+}"
+    }
+  ]
+}"
+    }
+  ]
+}
