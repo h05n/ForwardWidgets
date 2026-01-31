@@ -1,7 +1,7 @@
 /* PATCHED-BY: forward-danmu-patcher
- * 生成时间: 2026-01-31T10:37:15.043Z
- * 上游真实URL: https://unpkg.com/@forward-widget/danmu-universe@0.15.0/dist/danmu-universe.js
- * 上游SHA256: 381ca371f2542f88db1a4914cdc3beedf7d8fb8b05aed5ce6441bdb895b92312
+ * 生成时间: 2026-01-31T12:59:45.269Z
+ * 上游真实URL: https://unpkg.com/@forward-widget/danmu-universe@0.15.1/dist/danmu-universe.js
+ * 上游SHA256: c99c5659e205501a45e46a91fb6aa494e674a8d106f842aaf4abde6e7705c712
  * 强制替换字段:
  *   id=danmu
  *   title=通用弹幕
