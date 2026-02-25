@@ -6,11 +6,11 @@
     {
       "id": "danmu",
       "title": "通用弹幕",
-      "description": "通用弹幕",
+      "description": "从全平台获取弹幕",
       "requiredVersion": "0.0.1",
       "version": "1.0.0",
       "author": "，",
-      "url": "https://github.com/h05n/ForwardWidgets/raw/main/dist/danmu.js"
+      "url": "https://github.com/h05n/Script/raw/main/danmu.js"
     },
     {
       "id": "zidingyidanmu",
