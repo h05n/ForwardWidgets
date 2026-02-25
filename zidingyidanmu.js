@@ -1,5 +1,5 @@
 WidgetMetadata = {
-  id: "forward.danmu",
+  id: "zidingyidanmu",
   title: "自定义弹幕",
   version: "1.0.0",
   requiredVersion: "0.0.1",
