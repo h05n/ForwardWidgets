@@ -3,7 +3,7 @@ WidgetMetadata = {
   title: "自定义弹幕",
   version: "1.0.0",
   requiredVersion: "0.0.1",
-  description: "从指定服务器获取弹幕",
+  description: "从服务器获取弹幕",
   author: "，",
   site: "https://github.com/h05n/ForwardWidgets",
   globalParams: [
